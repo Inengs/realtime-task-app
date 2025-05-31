@@ -14,6 +14,8 @@ func InitDB(db *sql.DB) error {
 		username VARCHAR(20) UNIQUE NOT NULL,
 		email VARCHAR(255) UNIQUE NOT NULL,
 		password VARCHAR(255) NOT NULL,
+				verified BOOLEAN DEFAULT FALSE,
+		verification_token TEXT,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	)
 	`)
@@ -21,7 +23,7 @@ func InitDB(db *sql.DB) error {
 		log.Printf("Error creating users table: %v", err)
 		return err
 	}
-	
+
 	// Create tasks table (example)
 	_, err = db.Exec(`
 	CREATE TABLE IF NOT EXISTS tasks (
@@ -38,7 +40,7 @@ func InitDB(db *sql.DB) error {
 		log.Printf("Error creating tasks table: %v", err)
 		return err
 	}
-	
+
 	log.Println("Database tables initialized successfully")
 	return nil
 }

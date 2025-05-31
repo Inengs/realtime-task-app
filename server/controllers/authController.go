@@ -10,6 +10,7 @@ import (
 
 	_ "github.com/Inengs/realtime-task-app/db"
 	"github.com/Inengs/realtime-task-app/middleware"
+	"github.com/Inengs/realtime-task-app/models"
 	"github.com/Inengs/realtime-task-app/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -26,13 +27,6 @@ type User struct {
 type LoginRequest struct {
 	Email    string `json:"email" binding:"required,customEmail"`
 	Password string `json:"password" binding:"required, min=6, max=32"`
-}
-
-// UserResponse defines the structure for user data returned by /me
-type UserResponse struct {
-	UserID   int    `json:"user_id"`
-	Username string `json:"username"`
-	Email    string `json:"email"`
 }
 
 // ValidateEmail checks if the email format is valid using a regex
@@ -339,7 +333,7 @@ func MeFunc(c *gin.Context) {
 	userID, _ := session.Values["user_id"].(int)
 
 	// Query user details from database
-	var user UserResponse
+	var user models.UserResponse
 	query := `SELECT id, username, email FROM users WHERE id=$1`
 	err = db.QueryRow(query, userID).Scan(&user.UserID, &user.Username, &user.Email)
 	if err == sql.ErrNoRows {

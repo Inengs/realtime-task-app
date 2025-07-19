@@ -186,5 +186,47 @@ func DeleteTask(c *gin.Context) {
 }
 
 func UpdateTaskStatus(c *gin.Context) {
+	db := c.MustGet("db").(*sql.DB) // Setup database connection
 
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid task ID"})
+		return
+	}
+
+	var status models.StatusInput
+	if err := c.ShouldBindJSON(&status); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	validate := validator.New()
+	if err := validate.Struct(status); err != nil {
+		var errs []string
+		for _, err := range err.(validator.ValidationErrors) {
+			errs = append(errs, fmt.Sprintf("Field '%s' failed on '%s'", err.Field(), err.Tag()))
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"errors": errs})
+		return
+	}
+
+	// Update task status in database
+	var task models.Task
+	err = db.QueryRow(
+		"UPDATE tasks SET status = $1 WHERE id = $2 RETURNING id, title, description, status",
+		status.Status, id,
+	).Scan(&task.ID, &task.Title, &task.Description, &task.Status)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Task with ID %d not found", id)})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
+	// Return updated task
+	c.JSON(http.StatusOK, gin.H{"message": "Task status updated successfully", "task": task})
 }

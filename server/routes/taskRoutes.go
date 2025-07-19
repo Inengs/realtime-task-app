@@ -12,5 +12,8 @@ func TaskAuthRoutes(router *gin.Engine) {
 		tasks.GET("/", controllers.TaskListFunc)
 		tasks.GET("/:id", controllers.TaskDetailsFunc)
 		tasks.POST("/", controllers.CreateNewTask)
+		tasks.PUT("/:id", controllers.UpdateTask)
+		tasks.DELETE("/:id", controllers.DeleteTask)
+		tasks.PATCH("/:id/status", controllers.UpdateTaskStatus)
 	}
 }

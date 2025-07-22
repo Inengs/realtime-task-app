@@ -14,9 +14,18 @@ import (
 func TaskListFunc(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB) // Setup database connection
 
-	rows, err := db.Query(`SELECT title, description, status FROM tasks`) // query all tasks from database
+	// Get user ID from session
+	userID, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	userIDInt, _ := userID.(int)
+
+	rows, err := db.Query(`SELECT ID, UserID, Title, Description, Status, CreatedAt, UpdatedAt FROM tasks WHERE user_id = $1`, userIDInt) // query all tasks from database
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
 	}
 
 	defer rows.Close()
@@ -25,7 +34,7 @@ func TaskListFunc(c *gin.Context) {
 	var tasks []models.Task
 	for rows.Next() {
 		var task models.Task
-		if err := rows.Scan(&task.ID, &task.Title, &task.Description, &task.Status); err != nil {
+		if err := rows.Scan(&task.ID, &task.UserID, &task.Title, &task.Description, &task.Status, &task.CreatedAt, &task.UpdatedAt); err != nil {
 			// Return 500 if scanning fails
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 			return
@@ -44,6 +53,14 @@ func TaskListFunc(c *gin.Context) {
 func TaskDetailsFunc(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB) // Setup database connection
 
+	// Get user ID from session
+	userID, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	userIDInt, _ := userID.(int)
+
 	// Extract and validate ID from URL parameter
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
@@ -54,8 +71,8 @@ func TaskDetailsFunc(c *gin.Context) {
 
 	// Query task by ID
 	var task models.Task
-	err = db.QueryRow("SELECT id, title, description, status FROM tasks WHERE id = $1", id).
-		Scan(&task.ID, &task.Title, &task.Description, &task.Status)
+	err = db.QueryRow("SELECT ID, UserID, Title, Description, Status, CreatedAt, UpdatedAt FROM tasks WHERE ID = $1 AND UserID = $2", id, userIDInt).
+		Scan(&task.ID, &task.UserID, &task.Title, &task.Description, &task.Status, &task.CreatedAt, &task.UpdatedAt)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Task with ID %d not found", id)})
 		return
@@ -67,11 +84,18 @@ func TaskDetailsFunc(c *gin.Context) {
 
 	// Return task details
 	c.JSON(http.StatusOK, gin.H{"message": "Task retrieved successfully", "task": task})
-
 }
 
 func CreateNewTask(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB) // Setup database connection
+
+	// Get user ID from session
+	userID, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	userIDInt, _ := userID.(int)
 
 	// Bind and validate request body
 	var input models.TaskInput
@@ -94,13 +118,20 @@ func CreateNewTask(c *gin.Context) {
 	// Insert task into database
 	var task models.Task
 	err := db.QueryRow(
-		"INSERT INTO tasks (title, description, status) VALUES ($1, $2, $3) RETURNING id, title, description, status",
-		input.Title, input.Description, input.Status,
+		"INSERT INTO tasks (title, description, status, user_id) VALUES ($1, $2, $3, $4) RETURNING id, user_id, title, description, status, created_at, updated_at",
+		input.Title, input.Description, input.Status, userIDInt,
 	).Scan(&task.ID, &task.Title, &task.Description, &task.Status)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
+
+	// Send notification and broadcast task
+	if err := SendNotification(db, userIDInt, fmt.Sprintf("New task created: %s", task.Title)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send notification"})
+		return
+	}
+	manager.BroadcastTask(userIDInt, task, "task_update")
 
 	// Return created task
 	c.JSON(http.StatusCreated, gin.H{"message": "Task created successfully", "task": task})
@@ -108,6 +139,14 @@ func CreateNewTask(c *gin.Context) {
 
 func UpdateTask(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB) // Setup database connection
+
+	// Get user ID from session
+	userID, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	userIDInt, _ := userID.(int)
 
 	// Extract and validate ID from URL parameter
 	idStr := c.Param("id")
@@ -137,8 +176,8 @@ func UpdateTask(c *gin.Context) {
 	// Update task in database
 	var task models.Task
 	err = db.QueryRow(
-		"UPDATE tasks SET title = $1, description = $2, status = $3 WHERE id = $4 RETURNING id, title, description, status",
-		input.Title, input.Description, input.Status, id,
+		"UPDATE tasks SET title = $1, description = $2, status = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4 AND user_id = $5 RETURNING id, user_id, title, description, status, created_at, updated_at",
+		input.Title, input.Description, input.Status, id, userIDInt,
 	).Scan(&task.ID, &task.Title, &task.Description, &task.Status)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Task with ID %d not found", id)})
@@ -149,12 +188,27 @@ func UpdateTask(c *gin.Context) {
 		return
 	}
 
+	// Send notification and broadcast task
+	if err := SendNotification(db, userIDInt, fmt.Sprintf("Task updated: %s", task.Title)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send notification"})
+		return
+	}
+	manager.BroadcastTask(userIDInt, task, "task_update")
+
 	// Return Updated task
 	c.JSON(http.StatusOK, gin.H{"message": "Task updated successfully", "task": task})
 }
 
 func DeleteTask(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB)
+
+	// Get user ID from session
+	userID, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	userIDInt, _ := userID.(int)
 
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
@@ -164,7 +218,21 @@ func DeleteTask(c *gin.Context) {
 		return
 	}
 
-	result, err := db.Exec("DELETE FROM tasks WHERE id = $1", id)
+	var task models.Task
+	err = db.QueryRow(
+		"SELECT id, user_id, title, description, status, created_at, updated_at FROM tasks WHERE id = $1 AND user_id = $2",
+		id, userIDInt,
+	).Scan(&task.ID, &task.UserID, &task.Title, &task.Description, &task.Status, &task.CreatedAt, &task.UpdatedAt)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Task with ID %d not found", id)})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
+	result, err := db.Exec("DELETE FROM tasks WHERE id = $1 and user_id = $2", id, userIDInt)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
@@ -181,12 +249,27 @@ func DeleteTask(c *gin.Context) {
 		return
 	}
 
+	// Send notification and broadcast task deletion
+	if err := SendNotification(db, userIDInt, fmt.Sprintf("Task deleted: %s", task.Title)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send notification"})
+		return
+	}
+	manager.BroadcastTask(userIDInt, task, "task_deleted")
+
 	// Return success response
 	c.JSON(http.StatusOK, gin.H{"message": "Task deleted successfully"})
 }
 
 func UpdateTaskStatus(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB) // Setup database connection
+
+	// Get user ID from session
+	userID, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	userIDInt, _ := userID.(int)
 
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
@@ -215,8 +298,8 @@ func UpdateTaskStatus(c *gin.Context) {
 	// Update task status in database
 	var task models.Task
 	err = db.QueryRow(
-		"UPDATE tasks SET status = $1 WHERE id = $2 RETURNING id, title, description, status",
-		status.Status, id,
+		"UPDATE tasks SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND user_id = $3 RETURNING id, user_id, title, description, status, created_at, updated_at",
+		status.Status, id, userIDInt,
 	).Scan(&task.ID, &task.Title, &task.Description, &task.Status)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Task with ID %d not found", id)})
@@ -226,6 +309,13 @@ func UpdateTaskStatus(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
+
+	// Send notification and broadcast task
+	if err := SendNotification(db, userIDInt, fmt.Sprintf("Task status updated to %s: %s", task.Status, task.Title)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send notification"})
+		return
+	}
+	manager.BroadcastTask(userIDInt, task, "task_update")
 
 	// Return updated task
 	c.JSON(http.StatusOK, gin.H{"message": "Task status updated successfully", "task": task})

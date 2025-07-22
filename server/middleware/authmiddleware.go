@@ -30,7 +30,12 @@ func AuthMiddleware() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		// Proceed to next handler if authenticated
+
+		// Set user_id in Gin context for access in downstream handlers
+		c.Set("user_id", session.Values["user_id"])
+
+		// go to next handler
 		c.Next()
+
 	}
 }

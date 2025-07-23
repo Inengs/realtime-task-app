@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Management App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-router-dom@6/dist/umd/react-router-dom.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7/babel.min.js"></script>
+</head>
+
+<body class="bg-gray-100">
+    <div id="root"></div>
+    <script type="text/babel">
+        const { createContext, useState, useEffect, useContext } = React;
+        const { BrowserRouter, Routes, Route, Link, useNavigate, useParams } = ReactRouterDOM;
+
+        // Auth Context
+        const AuthContext = createContext(null);
+
+        // API Helper
+        const apiFetch = async (url, options = {}) => {
+            const response = await fetch(`http://localhost:8080${url}`, {
+                ...options,
+                headers: { 'Content-Type': 'application/json', ...options.headers },
+                credentials: 'include',
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Request failed');
+            return data;
+        };
+
+        // WebSocket Manager
+        function WebSocketManager({ userId, onTaskUpdate, onProjectUpdate, onNotification }) {
+            useEffect(() => {
+                const sockets = [
+                    { url: 'ws://localhost:8080/ws/notifications', handler: onNotification },
+                    { url: 'ws://localhost:8080/ws/tasks', handler: onTaskUpdate },
+                    { url: 'ws://localhost:8080/ws/projects', handler: onProjectUpdate },
+                ];
+
+                const connections = sockets.map(({ url, handler }) => {
+                    const ws = new WebSocket(url);
+                    ws.onmessage = (event) => {
+                        const msg = JSON.parse(event.data);
+                        handler(msg);
+                    };
+                    ws.onclose = () => console.log(`WebSocket ${url} closed`);
+                    ws.onerror = () => console.error(`WebSocket ${url} error`);
+                    return ws;
+                });
+
+                return () => connections.forEach(ws => ws.close());
+            }, [userId]);
+
+            return null;
+        }
+
+        // Login Component
+        function Login() {
+            const [username, setUsername] = useState('');
+            const [password, setPassword] = useState('');
+            const [error, setError] = useState('');
+            const { setAuth } = useContext(AuthContext);
+            const navigate = useNavigate();
+
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                try {
+                    const data = await apiFetch('/login', {
+                        method: 'POST',
+                        body: JSON.stringify({ username, password }),
+                    });
+                    setAuth({ userId: data.user_id });
+                    navigate('/projects');
+                } catch (err) {
+                    setError(err.message);
+                }
+            };
+
+            return (
+                <div class="flex justify-center items-center h-screen">
+                    <div class="bg-white p-6 rounded shadow-md w-96">
+                        <h2 class="text-2xl mb-4">Login</h2>
+                        {error && <p class="text-red-500">{error}</p>}
+                        <form onSubmit={handleLogin}>
+                            <input
+                                type="text"
+                                placeholder="Username"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                className="w-full p-2 mb-4 border rounded"
+                            />
+                            <input
+                                type="password"
+                                placeholder="Password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full p-2 mb-4 border rounded"
+                            />
+                            <button type="submit" className="w-full bg-blue-500 text-white p-2 rounded">
+                                Login
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+
+        // Project List Component
+        function ProjectList() {
+            const [projects, setProjects] = useState([]);
+            const [name, setName] = useState('');
+            const [description, setDescription] = useState('');
+            const [error, setError] = useState('');
+            const { userId } = useContext(AuthContext);
+            const navigate = useNavigate();
+
+            useEffect(() => {
+                apiFetch('/projects')
+                    .then(data => setProjects(data.projects))
+                    .catch(err => setError(err.message));
+            }, []);
+
+            const handleCreate = async (e) => {
+                e.preventDefault();
+                try {
+                    const data = await apiFetch('/projects', {
+                        method: 'POST',
+                        body: JSON.stringify({ name, description }),
+                    });
+                    setProjects([...projects, data.project]);
+                    setName('');
+                    setDescription('');
+                } catch (err) {
+                    setError(err.message);
+                }
+            };
+
+            const handleDelete = async (id) => {
+                try {
+                    await apiFetch(`/projects/${id}`, { method: 'DELETE' });
+                    setProjects(projects.filter(p => p.id !== id));
+                } catch (err) {
+                    setError(err.message);
+                }
+            };
+
+            return (
+                <div class="p-4">
+                    <h1 class="text-3xl mb-4">Projects</h1>
+                    {error && <p class="text-red-500">{error}</p>}
+                    <form onSubmit={handleCreate} class="mb-4">
+                        <input
+                            type="text"
+                            placeholder="Project Name"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            className="p-2 border rounded mr-2"
+                        />
+                        <input
+                            type="text"
+                            placeholder="Description"
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            className="p-2 border rounded mr-2"
+                        />
+                        <button type="submit" className="bg-green-500 text-white p-2 rounded">
+                            Create Project
+                        </button>
+                    </form>
+                    <ul class="space-y-2">
+                        {projects.map(project => (
+                            <li key={project.id} class="flex justify-between items-center p-2 bg-white rounded shadow">
+                                <Link to={`/projects/${project.id}`} className="text-blue-500">
+                                    {project.name}
+                                </Link>
+                                <button
+                                    onClick={() => handleDelete(project.id)}
+                                    className="bg-red-500 text-white p-1 rounded"
+                                >
+                                    Delete
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            );
+        }
+
+        // Project Details Component
+        function ProjectDetails() {
+            const { id } = useParams();
+            const [project, setProject] = useState(null);
+            const [tasks, setTasks] = useState([]);
+            const [error, setError] = useState('');
+            const navigate = useNavigate();
+
+            useEffect(() => {
+                Promise.all([
+                    apiFetch(`/projects/${id}`),
+                    apiFetch(`/tasks?project_id=${id}`),
+                ])
+                    .then(([projectData, tasksData]) => {
+                        setProject(projectData.project);
+                        setTasks(tasksData.tasks);
+                    })
+                    .catch(err => setError(err.message));
+            }, [id]);
+
+            const handleTaskUpdate = (msg) => {
+                if (msg.type === 'task_update') {
+                    setTasks(tasks =>
+                        tasks.some(t => t.id === msg.data.id)
+                            ? tasks.map(t => (t.id === msg.data.id ? msg.data : t))
+                            : [...tasks, msg.data]
+                    );
+                } else if (msg.type === 'task_deleted') {
+                    setTasks(tasks => tasks.filter(t => t.id !== msg.data.id));
+                }
+            };
+
+            const handleProjectUpdate = (msg) => {
+                if (msg.type === 'project_updated' && msg.data.id === parseInt(id)) {
+                    setProject(msg.data);
+                } else if (msg.type === 'project_deleted' && msg.data.id === parseInt(id)) {
+                    navigate('/projects');
+                }
+            };
+
+            if (!project) return <div class="p-4">Loading...</div>;
+
+            return (
+                <div class="p-4">
+                    <WebSocketManager
+                        userId={project.user_id}
+                        onTaskUpdate={handleTaskUpdate}
+                        onProjectUpdate={handleProjectUpdate}
+                    />
+                    <h1 class="text-3xl mb-4">{project.name}</h1>
+                    {error && <p class="text-red-500">{error}</p>}
+                    <p class="mb-4">{project.description}</p>
+                    <TaskList projectId={id} tasks={tasks} setTasks={setTasks} />
+                </div>
+            );
+        }
+
+        // Task List Component
+        function TaskList({ projectId, tasks, setTasks }) {
+            const [title, setTitle] = useState('');
+            const [description, setDescription] = useState('');
+            const [status, setStatus] = useState('pending');
+            const [error, setError] = useState('');
+
+            const handleCreate = async (e) => {
+                e.preventDefault();
+                try {
+                    const data = await apiFetch('/tasks', {
+                        method: 'POST',
+                        body: JSON.stringify({ title, description, status, project_id: parseInt(projectId) }),
+                    });
+                    setTasks([...tasks, data.task]);
+                    setTitle('');
+                    setDescription('');
+                    setStatus('pending');
+                } catch (err) {
+                    setError(err.message);
+                }
+            };
+
+            const handleUpdateStatus = async (id, newStatus) => {
+                try {
+                    const data = await apiFetch(`/tasks/${id}/status`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ status: newStatus }),
+                    });
+                    setTasks(tasks.map(t => (t.id === id ? data.task : t)));
+                } catch (err) {
+                    setError(err.message);
+                }
+            };
+
+            const handleDelete = async (id) => {
+                try {
+                    await apiFetch(`/tasks/${id}`, { method: 'DELETE' });
+                    setTasks(tasks.filter(t => t.id !== id));
+                } catch (err) {
+                    setError(err.message);
+                }
+            };
+
+            return (
+                <div>
+                    <h2 class="text-2xl mb-4">Tasks</h2>
+                    {error && <p class="text-red-500">{error}</p>}
+                    <form onSubmit={handleCreate} class="mb-4">
+                        <input
+                            type="text"
+                            placeholder="Task Title"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            className="p-2 border rounded mr-2"
+                        />
+                        <input
+                            type="text"
+                            placeholder="Description"
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            className="p-2 border rounded mr-2"
+                        />
+                        <select
+                            value={status}
+                            onChange={(e) => setStatus(e.target.value)}
+                            className="p-2 border rounded mr-2"
+                        >
+                            <option value="pending">Pending</option>
+                            <option value="in-progress">In Progress</option>
+                            <option value="done">Done</option>
+                        </select>
+                        <button type="submit" className="bg-green-500 text-white p-2 rounded">
+                            Create Task
+                        </button>
+                    </form>
+                    <ul class="space-y-2">
+                        {tasks.map(task => (
+                            <li key={task.id} class="flex justify-between items-center p-2 bg-white rounded shadow">
+                                <span>{task.title} ({task.status})</span>
+                                <div>
+                                    <select
+                                        value={task.status}
+                                        onChange={(e) => handleUpdateStatus(task.id, e.target.value)}
+                                        className="p-1 border rounded mr-2"
+                                    >
+                                        <option value="pending">Pending</option>
+                                        <option value="in-progress">In Progress</option>
+                                        <option value="done">Done</option>
+                                    </select>
+                                    <button
+                                        onClick={() => handleDelete(task.id)}
+                                        className="bg-red-500 text-white p-1 rounded"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            );
+        }
+
+        // Notification List Component
+        function NotificationList() {
+            const [notifications, setNotifications] = useState([]);
+            const [error, setError] = useState('');
+            const { userId } = useContext(AuthContext);
+
+            useEffect(() => {
+                if (userId) {
+                    apiFetch(`/users/${userId}/notifications`)
+                        .then(data => setNotifications(data.notifications))
+                        .catch(err => setError(err.message));
+                }
+            }, [userId]);
+
+            const handleMarkRead = async () => {
+                try {
+                    await apiFetch(`/users/${userId}/notifications/read`, { method: 'PATCH' });
+                    setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+                } catch (err) {
+                    setError(err.message);
+                }
+            };
+
+            const handleNotification = (msg) => {
+                if (msg.type === 'notification') {
+                    setNotifications(n => [msg.data, ...n]);
+                }
+            };
+
+            return (
+                <div class="p-4">
+                    <h1 class="text-3xl mb-4">Notifications</h1>
+                    <WebSocketManager userId={userId} onNotification={handleNotification} />
+                    {error && <p class="text-red-500">{error}</p>}
+                    <button
+                        onClick={handleMarkRead}
+                        className="bg-blue-500 text-white p-2 rounded mb-4"
+                    >
+                        Mark All as Read
+                    </button>
+                    <ul class="space-y-2">
+                        {notifications.map(notification => (
+                            <li
+                                key={notification.id}
+                                className={`p-2 rounded shadow ${notification.is_read ? 'bg-gray-200' : 'bg-white'}`}
+                            >
+                                {notification.message} - {new Date(notification.created_at).toLocaleString()}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            );
+        }
+
+        // App Component
+        function App() {
+            const [auth, setAuth] = useState({ userId: null });
+            const navigate = useNavigate();
+
+            useEffect(() => {
+                apiFetch('/auth/check')
+                    .then(data => setAuth({ userId: data.user_id }))
+                    .catch(() => navigate('/login'));
+            }, []);
+
+            return (
+                <AuthContext.Provider value={{ userId: auth.userId, setAuth }}>
+                    <nav class="bg-blue-600 text-white p-4">
+                        <ul class="flex space-x-4">
+                            <li><Link to="/projects" className="hover:underline">Projects</Link></li>
+                            <li><Link to="/notifications" className="hover:underline">Notifications</Link></li>
+                            {auth.userId && (
+                                <li>
+                                    <button
+                                        onClick={() => {
+                                            setAuth({ userId: null });
+                                            navigate('/login');
+                                        }}
+                                        className="hover:underline"
+                                    >
+                                        Logout
+                                    </button>
+                                </li>
+                            )}
+                        </ul>
+                    </nav>
+                    <Routes>
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/projects" element={auth.userId ? <ProjectList /> : <Login />} />
+                        <Route path="/projects/:id" element={auth.userId ? <ProjectDetails /> : <Login />} />
+                        <Route path="/notifications" element={auth.userId ? <NotificationList /> : <Login />} />
+                        <Route path="/" element={<Navigate to="/projects" />} />
+                    </Routes>
+                </AuthContext.Provider>
+            );
+        }
+
+        // Render App
+        ReactDOM.render(
+            <BrowserRouter>
+                <App />
+            </BrowserRouter>,
+            document.getElementById('root')
+        );
+    </script>
+</body>
+
+</html>

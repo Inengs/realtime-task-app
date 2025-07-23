@@ -56,6 +56,22 @@ func InitDB(db *sql.DB) error {
 		return err
 	}
 
+	// Create Projects table
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS projects (
+			id SERIAL PRIMARY KEY,
+			userid INTEGER REFERENCES users(id),
+			name VARCHAR(255) NOT NULL,
+			description TEXT, 
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			updated_at: TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+	if err != nil {
+		log.Printf("Error creating notifications table: %v", err)
+		return err
+	}
+
 	log.Println("Database tables initialized successfully")
 	return nil
 }

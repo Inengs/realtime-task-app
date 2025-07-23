@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NotificationsRoutes(router *gin.Engine) {
+func NotificationsAuthRoutes(router *gin.Engine) {
 	notifications := router.Group("/notifications", middleware.AuthMiddleware())
 	{
 		notifications.GET("/", controllers.GetUserNotifications)

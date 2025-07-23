@@ -144,6 +144,25 @@ func (m *ClientManager) BroadcastProjectEvent(userID int, eventType string, proj
 	}
 }
 
+// BroadcastProject sends a project update to all project and notification clients of a user
+func (m *ClientManager) BroadcastProject(userID int, project models.Project, messageType string) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	message := gin.H{"type": messageType, "data": project}
+	for _, conn := range m.projectClients[userID] {
+		if err := conn.WriteJSON(message); err != nil {
+			log.Printf("Error broadcasting project to user %d: %v", userID, err)
+			conn.Close()
+		}
+	}
+	for _, conn := range m.clients[userID] {
+		if err := conn.WriteJSON(message); err != nil {
+			log.Printf("Error broadcasting project to notification client user %d: %v", userID, err)
+			conn.Close()
+		}
+	}
+}
+
 // WebSocketHandler handles WebSocket connections for notifications
 func WebSocketHandler(c *gin.Context) {
 	// Get user ID from session
@@ -220,12 +239,14 @@ func WebSocketTaskHandler(c *gin.Context) {
 
 // WebSocketProjectHandler handles WebSocket connections for projects
 func WebSocketProjectHandler(c *gin.Context) {
+	// Get user ID from session
 	userID, ok := c.Get("user_id")
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
+	// Upgrade HTTP to WebSocket
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
@@ -235,6 +256,7 @@ func WebSocketProjectHandler(c *gin.Context) {
 		return
 	}
 
+	// Register project client
 	userIDInt, _ := userID.(int)
 	manager.AddProjectClient(userIDInt, conn)
 	defer func() {
@@ -242,6 +264,7 @@ func WebSocketProjectHandler(c *gin.Context) {
 		conn.Close()
 	}()
 
+	// Keep connection open, read messages
 	for {
 		_, _, err := conn.ReadMessage()
 		if err != nil {

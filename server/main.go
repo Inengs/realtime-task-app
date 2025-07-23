@@ -2,11 +2,17 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"github.com/Inengs/realtime-task-app/config"
 	"github.com/Inengs/realtime-task-app/db"
+	"github.com/Inengs/realtime-task-app/middleware"
 	"github.com/Inengs/realtime-task-app/routes"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/sessions"
+	_ "github.com/joho/godotenv/autoload"
+	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -18,46 +24,48 @@ func main() {
 	defer database.Close()
 
 	// Initialize database schema
-	err = db.InitDB(database)
-	if err != nil {
+	if err := db.InitDB(database); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
-	router := gin.Default() // creates a router
+	// Set up Gin router
+	router := gin.Default()
 
-	routes.RegisterAuthRoutes(router)
+	// Attach database to context
+	router.Use(func(c *gin.Context) {
+		c.Set("db", database)
+		c.Next()
+	})
 
-	users := router.Group("/users")
-	{
-		users.GET("/", func(c *gin.Context) {})
-		users.GET("/:id", func(c *gin.Context) {})
+	// Configure CORS for frontend
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
+		AllowHeaders:     []string{"Origin", "Content-Type"},
+		AllowCredentials: true,
+	}))
+
+	// Initialize session store
+	middleware.Store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_SECRET")))
+	if middleware.Store == nil {
+		log.Fatalf("Failed to initialize session store")
 	}
 
-	tasks := router.Group("/tasks")
-	{
-		tasks.GET("/", func(c *gin.Context) {})
-		tasks.GET("/:id", func(c *gin.Context) {})
-		tasks.POST("/", func(c *gin.Context) {})
-		tasks.PUT("/:id", func(c *gin.Context) {})
-		tasks.DELETE("/:id", func(c *gin.Context) {})
-		tasks.PATCH("/:id/status", func(c *gin.Context) {})
+	// Register routes
+	routes.RegisterAuthRoutes(router) // /login, /auth/check
+	routes.UserAuthRoutes(router)     // /users/:id/notifications, /users/:id/notifications/read
+	routes.TaskAuthRoutes(router)     // /tasks, /tasks/:id, etc.
+	routes.ProjectAuthRoutes(router)  // /projects, /projects/:id, etc.
+	routes.WsAuthRoutes(router)       // /ws/notifications, /ws/tasks, /ws/projects
+	routes.NotificationsAuthRoutes(router)
+
+	// Start server
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
 	}
-
-	notifications := router.Group("/notifications")
-	{
-		notifications.GET("/", func(c *gin.Context) {})
-		notifications.POST("/mark-read", func(c *gin.Context) {})
+	log.Printf("Server starting on :%s", port)
+	if err := router.Run(":" + port); err != nil {
+		log.Fatalf("Server failed: %v", err)
 	}
-
-	projects := router.Group("/projects")
-	{
-		projects.GET("/", func(c *gin.Context) {})
-		projects.GET("/:id", func(c *gin.Context) {})
-		projects.POST("/", func(c *gin.Context) {})
-		projects.PUT("/:id", func(c *gin.Context) {})
-		projects.DELETE("/:id", func(c *gin.Context) {})
-	}
-
-	router.Run(":8080")
-
 }

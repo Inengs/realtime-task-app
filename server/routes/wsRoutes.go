@@ -11,6 +11,6 @@ func WsAuthRoutes(router *gin.Engine) {
 	{
 		ws.GET("/notifications", middleware.AuthMiddleware(), controllers.WebSocketHandler)
 		ws.GET("/tasks", middleware.AuthMiddleware(), controllers.WebSocketTaskHandler)
-		ws.GET("/tasks", middleware.AuthMiddleware(), controllers.WebSocketProjectHandler)
+		ws.GET("/projects", middleware.AuthMiddleware(), controllers.WebSocketProjectHandler)
 	}
 }

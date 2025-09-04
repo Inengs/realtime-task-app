@@ -3,6 +3,7 @@ package controllers
 import (
 	"database/sql"
 	"errors"
+	"log"
 	"net/http"
 	"regexp"
 	"strings"
@@ -117,6 +118,7 @@ func RegisterFunc(c *gin.Context) {
 	query := `SELECT EXISTS (SELECT 1 FROM users WHERE username=$1)`
 	err = db.QueryRow(query, user.Username).Scan(&exists)
 	if err != nil {
+		log.Printf("Username check error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
@@ -129,6 +131,7 @@ func RegisterFunc(c *gin.Context) {
 	query = `SELECT EXISTS (SELECT 1 FROM users WHERE email=$1)`
 	err = db.QueryRow(query, user.Email).Scan(&exists)
 	if err != nil {
+		log.Printf("Email check error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
@@ -140,12 +143,14 @@ func RegisterFunc(c *gin.Context) {
 	// HASH PASSWORD
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
+		log.Printf("Password hash error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not hash password"})
 		return
 	}
 
 	token, err := utils.GenerateVerificationToken()
 	if err != nil {
+		log.Printf("Token generation error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not generate verification token"})
 		return
 	}
@@ -158,11 +163,13 @@ func RegisterFunc(c *gin.Context) {
 		user.Username, user.Email, string(hashedPassword), token,
 	).Scan(&userID)
 	if err != nil {
+		log.Printf("User insert error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 		return
 	}
 
 	if err := utils.SendVerificationEmail(user.Email, token); err != nil {
+		log.Printf("Email sending error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send verification email"})
 		return
 	}

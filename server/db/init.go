@@ -43,14 +43,16 @@ func InitDB(db *sql.DB) error {
 
 	// Create notifications table
 	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS notifications (
-			ID SERIAL PRIMARY KEY,
-			UserID INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			Message TEXT NOT NULL,
-			IsRead BOOLEAN DEFAULT FALSE, 
-			CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)
+	CREATE TABLE IF NOT EXISTS notifications (
+		id SERIAL PRIMARY KEY,
+		user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		message TEXT NOT NULL,
+		is_read BOOLEAN DEFAULT FALSE,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	)
 	`)
+
 	if err != nil {
 		log.Printf("Error creating notifications table: %v", err)
 		return err
@@ -63,7 +65,7 @@ func InitDB(db *sql.DB) error {
 			userid INTEGER REFERENCES users(id),
 			name VARCHAR(255) NOT NULL,
 			description TEXT, 
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)
 	`)

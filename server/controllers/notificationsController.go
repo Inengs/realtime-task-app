@@ -3,6 +3,7 @@ package controllers
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -14,19 +15,27 @@ import (
 )
 
 func GetUserNotifications(c *gin.Context) {
-	db := c.MustGet("db").(*sql.DB)
+	db, ok := c.MustGet("db").(*sql.DB)
+
+	if !ok {
+		log.Printf("Failed to get database from context")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection error"})
+		return
+	}
 
 	// Extract  and validate user ID from URL parameter
 	userIDStr := c.Param("id")
 	userID, err := strconv.Atoi(userIDStr)
 	if err != nil {
+		log.Printf("Invalid user ID: %s, error: %v", userIDStr, err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 		return
 	}
 
 	// Query notifications for the user
-	rows, err := db.Query("SELECT ID, UserID, Message, IsRead, CreatedAt FROM notifications WHERE UserID = $1 ORDER BY CreatedAt DESC", userID)
+	rows, err := db.Query("SELECT ID, UserID, Message, IsRead, CreatedAt, UpdatedAt FROM notifications WHERE UserID = $1 ORDER BY CreatedAt DESC", userID)
 	if err != nil {
+		log.Printf("Database query error for user_id %d: %v", userID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
@@ -36,7 +45,8 @@ func GetUserNotifications(c *gin.Context) {
 	var notifications []models.Notifications
 	for rows.Next() {
 		var notification models.Notifications
-		if err := rows.Scan(&notification.ID, &notification.UserID, &notification.Message, &notification.IsRead, &notification.CreatedAt); err != nil {
+		if err := rows.Scan(&notification.ID, &notification.UserID, &notification.Message, &notification.IsRead, &notification.CreatedAt, &notification.UpdatedAt); err != nil {
+			log.Printf("Error scanning notification for user_id %d: %v", userID, err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 			return
 		}
@@ -45,11 +55,13 @@ func GetUserNotifications(c *gin.Context) {
 
 	// Check for iteration errors
 	if err := rows.Err(); err != nil {
+		log.Printf("Row iteration error for user_id %d: %v", userID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 
 	// Return notifications
+	log.Printf("Retrieved %d notifications for user_id %d", len(notifications), userID)
 	c.JSON(http.StatusOK, gin.H{"message": "Notifications retrieved successfully", "notifications": notifications})
 }
 

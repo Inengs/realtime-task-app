@@ -9,7 +9,7 @@ import (
 func NotificationsAuthRoutes(router *gin.Engine) {
 	notifications := router.Group("/notifications", middleware.AuthMiddleware())
 	{
-		notifications.GET("/", controllers.GetUserNotifications)
-		notifications.PATCH("/read", controllers.MarkNotificationsRead)
+		notifications.GET("/:id", controllers.GetUserNotifications)
+		notifications.PATCH("/read/:id", controllers.MarkNotificationsRead)
 	}
 }

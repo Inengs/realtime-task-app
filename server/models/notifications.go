@@ -8,6 +8,7 @@ type Notifications struct {
 	Message   string    `json:"message"`
 	IsRead    bool      `json:"isRead"`
 	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 type NotificationInput struct {

@@ -52,12 +52,17 @@ func main() {
 	}
 
 	// Register routes
-	routes.RegisterAuthRoutes(router) // /login, /auth/check
-	routes.UserAuthRoutes(router)     // /users/:id/notifications, /users/:id/notifications/read
-	routes.TaskAuthRoutes(router)     // /tasks, /tasks/:id, etc.
-	routes.ProjectAuthRoutes(router)  // /projects, /projects/:id, etc.
-	routes.WsAuthRoutes(router)       // /ws/notifications, /ws/tasks, /ws/projects
+	routes.RegisterAuthRoutes(router)
+	routes.UserAuthRoutes(router)
+	routes.TaskAuthRoutes(router)
+	routes.ProjectAuthRoutes(router)
+	routes.WsAuthRoutes(router)
 	routes.NotificationsAuthRoutes(router)
+
+	// Set trusted proxies
+	if err := router.SetTrustedProxies([]string{"127.0.0.1"}); err != nil {
+		log.Fatalf("Failed to set trusted proxies: %v", err)
+	}
 
 	// Start server
 	port := os.Getenv("PORT")

@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+
+	// "regexp"
 	"strings"
 	"unicode"
 
@@ -14,29 +16,28 @@ import (
 	"github.com/Inengs/realtime-task-app/models"
 	"github.com/Inengs/realtime-task-app/utils"
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
 	Username string `json:"username" binding:"required,min=3,max=20"`
-	Email    string `json:"email" binding:"required,customEmail"`
+	Email    string `json:"email" binding:"required"`
 	Password string `json:"password" binding:"required,min=6,max=32"`
 }
 
 // LoginRequest defines the structure for login payload
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required,customEmail"`
-	Password string `json:"password" binding:"required, min=6, max=32"`
+	Email    string `json:"email" binding:"required"`
+	Password string `json:"password" binding:"required,min=6,max=32"`
 }
 
-// ValidateEmail checks if the email format is valid using a regex
-func ValidateEmail(f1 validator.FieldLevel) bool {
-	email := f1.Field().String()
-	re := `^[a-z0-9]+([._-]?[a-z0-9]+)*@[a-z0-9-]+\.[a-z]{2,}$`
-	matched, _ := regexp.MatchString(re, email)
-	return matched
-}
+// // ValidateEmail checks if the email format is valid using a regex
+// func ValidateEmail(f1 validator.FieldLevel) bool {
+// 	email := f1.Field().String()
+// 	re := `^[a-z0-9]+([._-]?[a-z0-9]+)*@[a-z0-9-]+\.[a-z]{2,}$`
+// 	matched, _ := regexp.MatchString(re, email)
+// 	return matched
+// }
 
 // SanitizeInput removes control characters and trims whitespace
 func SanitizeInput(input string) string {
@@ -105,13 +106,13 @@ func RegisterFunc(c *gin.Context) {
 		return
 	}
 
-	// INPUT VALIDATION
-	validate := validator.New()
-	validate.RegisterValidation("customEmail", ValidateEmail)
-	if err := validate.Struct(user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input format"})
-		return
-	}
+	// // INPUT VALIDATION
+	// validate := validator.New()
+	// validate.RegisterValidation("customEmail", ValidateEmail)
+	// if err := validate.Struct(user); err != nil {
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input format"})
+	// 	return
+	// }
 
 	// DUPLICATE USER CHECK
 	var exists bool
@@ -237,14 +238,14 @@ func LoginFunc(c *gin.Context) {
 		return
 	}
 
-	// INPUT VALIDATION
-	validate := validator.New()
-	validate.RegisterValidation("customEmail", ValidateEmail)
-	if err := validate.Struct(login); err != nil {
-		// Return 400 if email format is invalid
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email format"})
-		return
-	}
+	// // INPUT VALIDATION
+	// validate := validator.New()
+	// validate.RegisterValidation("customEmail", ValidateEmail)
+	// if err := validate.Struct(login); err != nil {
+	// 	// Return 400 if email format is invalid
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email format"})
+	// 	return
+	// }
 
 	// QUERY USER BY EMAIL
 	var userID int

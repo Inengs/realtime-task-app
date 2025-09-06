@@ -37,6 +37,11 @@ func main() {
 		c.Next()
 	})
 
+	// Check if SESSION_SECRET IS MISSING
+	if os.Getenv("SESSION_SECRET") == "" {
+		log.Fatal("SESSION_SECRET is required")
+	}
+
 	// Configure CORS for frontend
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:3000"},

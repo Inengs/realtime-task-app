@@ -13,6 +13,7 @@ func SendVerificationEmail(toEmail, token string) error {
 	password := os.Getenv("EMAIL_PASSWORD")
 	smtpHost := os.Getenv("EMAIL_SMTP_HOST")
 	smtpPort := os.Getenv("EMAIL_SMTP_PORT")
+	AppBaseURL := os.Getenv("APP_BASE_URL")
 
 	// Log config for debugging (remove sensitive info in prod)
 	log.Printf("SMTP Config: Host=%s, Port=%s, From=%s, Username=%s", smtpHost, smtpPort, from, username)
@@ -22,7 +23,12 @@ func SendVerificationEmail(toEmail, token string) error {
 		return fmt.Errorf("missing SMTP environment variables")
 	}
 
-	verificationURL := fmt.Sprintf("http://localhost:8080/auth/verify-email?token=%s", token)
+	if AppBaseURL == "" {
+		// fallback if env var not set
+		AppBaseURL = "http://localhost:8080"
+	}
+
+	verificationURL := fmt.Sprintf("%s/auth/verify-email?token=%s", AppBaseURL, token)
 	message := []byte("To: " + toEmail + "\r\n" +
 		"Subject: Email Verification for Task App\r\n" +
 		"\r\n" +

@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"time"
 
 	// "regexp"
 	"strings"
@@ -156,12 +157,14 @@ func RegisterFunc(c *gin.Context) {
 		return
 	}
 
+	expiry := time.Now().Add(24 * time.Hour)
+
 	// INSERT USER
 	var userID int
 	err = db.QueryRow(
-		`INSERT INTO users (username, email, password, verification_token) 
-		 VALUES ($1, $2, $3, $4) RETURNING id`,
-		user.Username, user.Email, string(hashedPassword), token,
+		`INSERT INTO users (username, email, password, verification_token, verification_token_expiry) 
+     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+		user.Username, user.Email, string(hashedPassword), token, expiry,
 	).Scan(&userID)
 	if err != nil {
 		log.Printf("User insert error: %v", err)
@@ -191,9 +194,35 @@ func VerifyEmail(c *gin.Context) {
 		return
 	}
 
+	// Step 1: Fetch expiry time for this token
+	var expiry time.Time
+	err := db.QueryRow(`
+		SELECT verification_token_expiry 
+		FROM users 
+		WHERE verification_token = $1
+	`, token).Scan(&expiry)
+
+	if err == sql.ErrNoRows {
+		// Token doesn't exist
+		c.JSON(http.StatusNotFound, gin.H{"error": "Invalid token"})
+		return
+	}
+	if err != nil {
+		// DB error
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
+	// Step 2: Check if token expired
+	if time.Now().After(expiry) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Token expired"})
+		return
+	}
+
+	// Step 3: Update user to verified and clear token + expiry
 	result, err := db.Exec(`
 		UPDATE users 
-		SET verified = TRUE, verification_token = NULL 
+		SET verified = TRUE, verification_token = NULL, verification_token_expiry = NULL 
 		WHERE verification_token = $1
 	`, token)
 	if err != nil {
@@ -203,10 +232,12 @@ func VerifyEmail(c *gin.Context) {
 
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid or expired token"})
+		// Shouldn't happen because we already checked existence
+		c.JSON(http.StatusNotFound, gin.H{"error": "Invalid or expired token"})
 		return
 	}
 
+	// Step 4: Success
 	c.JSON(http.StatusOK, gin.H{"message": "Email verified successfully!"})
 }
 

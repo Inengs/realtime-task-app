@@ -28,10 +28,11 @@ func InitDB(db *sql.DB) error {
 	_, err = db.Exec(`
 	CREATE TABLE IF NOT EXISTS tasks (
 		id SERIAL PRIMARY KEY,
-		title VARCHAR(100) NOT NULL,
-		description TEXT,
-		status VARCHAR(20) NOT NULL DEFAULT 'pending',
 		user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+		project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+		title TEXT NOT NULL,
+		description TEXT,
+		status TEXT NOT NULL CHECK (status IN ('pending', 'in-progress', 'done')),
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	)
@@ -60,14 +61,14 @@ func InitDB(db *sql.DB) error {
 
 	// Create Projects table
 	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS projects (
-			id SERIAL PRIMARY KEY,
-			userid INTEGER REFERENCES users(id),
-			name VARCHAR(255) NOT NULL,
-			description TEXT, 
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)
+	CREATE TABLE IF NOT EXISTS projects (
+		id SERIAL PRIMARY KEY,
+		userid INTEGER REFERENCES users(id),
+		name VARCHAR(255) NOT NULL,
+		description TEXT, 
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	)
 	`)
 	if err != nil {
 		log.Printf("Error creating notifications table: %v", err)

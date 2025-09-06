@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	requestsPerMinute = 5
+	requestsPerMinute = 10
 	cleanupInterval   = 10 * time.Minute
 )
 

@@ -22,7 +22,7 @@ func TaskListFunc(c *gin.Context) {
 	}
 	userIDInt, _ := userID.(int)
 
-	rows, err := db.Query(`SELECT ID, UserID, Title, Description, Status, CreatedAt, UpdatedAt FROM tasks WHERE user_id = $1`, userIDInt) // query all tasks from database
+	rows, err := db.Query(`SELECT id, user_id, title, description, status, created_at, updated_at FROM tasks WHERE user_id = $1`, userIDInt) // query all tasks from database
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
@@ -34,7 +34,7 @@ func TaskListFunc(c *gin.Context) {
 	var tasks []models.Task
 	for rows.Next() {
 		var task models.Task
-		if err := rows.Scan(&task.ID, &task.UserID, &task.Title, &task.Description, &task.Status, &task.CreatedAt, &task.UpdatedAt); err != nil {
+		if err := rows.Scan(&task.ID, &task.UserID, &task.ProjectID, &task.Title, &task.Description, &task.Status, &task.CreatedAt, &task.UpdatedAt); err != nil {
 			// Return 500 if scanning fails
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 			return
@@ -47,7 +47,7 @@ func TaskListFunc(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Tasks retrieved successfully", "users": tasks})
+	c.JSON(http.StatusOK, gin.H{"message": "Tasks retrieved successfully", "tasks": tasks})
 }
 
 func TaskDetailsFunc(c *gin.Context) {
@@ -71,8 +71,8 @@ func TaskDetailsFunc(c *gin.Context) {
 
 	// Query task by ID
 	var task models.Task
-	err = db.QueryRow("SELECT ID, UserID, Title, Description, Status, CreatedAt, UpdatedAt FROM tasks WHERE ID = $1 AND UserID = $2", id, userIDInt).
-		Scan(&task.ID, &task.UserID, &task.Title, &task.Description, &task.Status, &task.CreatedAt, &task.UpdatedAt)
+	err = db.QueryRow("SELECT id, user_id, project_id, title, description, status, created_at, updated_at FROM tasks WHERE id = $1 AND user_id = $2", id, userIDInt).
+		Scan(&task.ID, &task.UserID, &task.ProjectID, &task.Title, &task.Description, &task.Status, &task.CreatedAt, &task.UpdatedAt)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Task with ID %d not found", id)})
 		return
@@ -118,9 +118,9 @@ func CreateNewTask(c *gin.Context) {
 	// Insert task into database
 	var task models.Task
 	err := db.QueryRow(
-		"INSERT INTO tasks (title, description, status, user_id) VALUES ($1, $2, $3, $4) RETURNING id, user_id, title, description, status, created_at, updated_at",
-		input.Title, input.Description, input.Status, userIDInt,
-	).Scan(&task.ID, &task.Title, &task.Description, &task.Status)
+		"INSERT INTO tasks (title, description, status, user_id, project_id) VALUES ($1, $2, $3, $4, $5) RETURNING id, user_id, project_id, title, description, status, created_at, updated_at",
+		input.Title, input.Description, input.Status, userIDInt, input.ProjectID,
+	).Scan(&task.ID, &task.UserID, &task.ProjectID, &task.Title, &task.Description, &task.Status, &task.CreatedAt, &task.UpdatedAt)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
@@ -176,9 +176,9 @@ func UpdateTask(c *gin.Context) {
 	// Update task in database
 	var task models.Task
 	err = db.QueryRow(
-		"UPDATE tasks SET title = $1, description = $2, status = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4 AND user_id = $5 RETURNING id, user_id, title, description, status, created_at, updated_at",
-		input.Title, input.Description, input.Status, id, userIDInt,
-	).Scan(&task.ID, &task.Title, &task.Description, &task.Status)
+		"UPDATE tasks SET title = $1, description = $2, status = $3, project_id = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5 AND user_id = $6 RETURNING id, user_id, project_id, title, description, status, created_at, updated_at",
+		input.Title, input.Description, input.Status, input.ProjectID, id, userIDInt,
+	).Scan(&task.ID, &task.UserID, &task.ProjectID, &task.Title, &task.Description, &task.Status, &task.CreatedAt, &task.UpdatedAt)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Task with ID %d not found", id)})
 		return
@@ -220,9 +220,9 @@ func DeleteTask(c *gin.Context) {
 
 	var task models.Task
 	err = db.QueryRow(
-		"SELECT id, user_id, title, description, status, created_at, updated_at FROM tasks WHERE id = $1 AND user_id = $2",
+		"SELECT id, user_id, project_id, title, description, status, created_at, updated_at FROM tasks WHERE id = $1 AND user_id = $2",
 		id, userIDInt,
-	).Scan(&task.ID, &task.UserID, &task.Title, &task.Description, &task.Status, &task.CreatedAt, &task.UpdatedAt)
+	).Scan(&task.ID, &task.UserID, &task.ProjectID, &task.Title, &task.Description, &task.Status, &task.CreatedAt, &task.UpdatedAt)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Task with ID %d not found", id)})
 		return
@@ -298,9 +298,9 @@ func UpdateTaskStatus(c *gin.Context) {
 	// Update task status in database
 	var task models.Task
 	err = db.QueryRow(
-		"UPDATE tasks SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND user_id = $3 RETURNING id, user_id, title, description, status, created_at, updated_at",
+		"UPDATE tasks SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND user_id = $3 RETURNING id, user_id, project_id, title, description, status, created_at, updated_at",
 		status.Status, id, userIDInt,
-	).Scan(&task.ID, &task.Title, &task.Description, &task.Status)
+	).Scan(&task.ID, &task.UserID, &task.ProjectID, &task.Title, &task.Description, &task.Status, &task.CreatedAt, &task.UpdatedAt)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Task with ID %d not found", id)})
 		return

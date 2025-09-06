@@ -54,6 +54,7 @@ func ProjectDetails(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(400, gin.H{"message": "Invalid IDs"})
+		return
 	}
 
 	// Get user ID from session
@@ -68,7 +69,7 @@ func ProjectDetails(c *gin.Context) {
 	err = db.QueryRow("SELECT id, user_id, name, description, created_at, updated_at FROM projects WHERE id = $1 AND user_id = $2", projectID, userIDInt).Scan(&project.ID, &project.UserID, &project.Name, &project.Description, &project.CreatedAt, &project.UpdatedAt)
 
 	if err == sql.ErrNoRows {
-		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Project with ID %d not found", userIDInt)})
+		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Project with ID %d not found", projectID)})
 		return
 	}
 	if err != nil {

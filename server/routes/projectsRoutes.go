@@ -12,8 +12,8 @@ func ProjectAuthRoutes(router *gin.Engine) {
 	{
 		projects.GET("/", controllers.ListProjects)
 		projects.GET("/:id", controllers.ProjectDetails)
-		projects.POST("/", controllers.ProjectDetails)
-		projects.PUT("/:id", controllers.ProjectDetails)
-		projects.DELETE("/:id", controllers.ProjectDetails)
+		projects.POST("/", controllers.CreateProject)
+		projects.PUT("/:id", controllers.UpdateProject)
+		projects.DELETE("/:id", controllers.DeleteProject)
 	}
 }

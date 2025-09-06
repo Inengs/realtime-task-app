@@ -125,9 +125,9 @@ func MarkNotificationsRead(c *gin.Context) {
 func SendNotification(db *sql.DB, userID int, message string) error {
 	var notification models.Notifications
 	err := db.QueryRow(
-		"INSERT INTO notifications (UserID, Message, IsRead) VALUES ($1, $2, false) RETURNING id, user_id, message, is_read, created_at",
+		"INSERT INTO notifications (UserID, Message, IsRead) VALUES ($1, $2, false) RETURNING id, user_id, message, is_read, created_at, , updated_at",
 		userID, message,
-	).Scan(&notification.ID, &notification.UserID, &notification.Message, &notification.IsRead, &notification.CreatedAt)
+	).Scan(&notification.ID, &notification.UserID, &notification.Message, &notification.IsRead, &notification.CreatedAt, &notification.UpdatedAt)
 	if err != nil {
 		return err
 	}

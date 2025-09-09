@@ -1,4 +1,4 @@
-import { ReactComponent as LeafSvg } from "../../assets/images/logo 2.svg"
+import { ReactComponent as LeafSvg } from "../../assets/images/logo-2.svg"
 
 function IntroHeader() {
     return (
@@ -12,6 +12,7 @@ const LeafIcon = ({ size = 100, color = "green" }) => (
         height={size}
         fill={color}
         className="mb-4 animate-bounce"
+        aria-label="TaskFlow leaf logo"
     />
 );
 
@@ -24,7 +25,7 @@ function IntroText() {
 
 export default function MyApp() {
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen space-y-3">
+        <div className="flex flex-col items-center justify-center min-h-screen space-y-3 max-w-md mx-auto px-4">
             <LeafIcon size={80} color="green" />
             <IntroHeader />
             <IntroText />

@@ -23,7 +23,7 @@ function IntroText() {
     )
 }
 
-export default function MyApp() {
+export default function WelcomePage() {
     return (
         <div className="flex flex-col items-center justify-center min-h-screen space-y-3 max-w-md mx-auto px-4">
             <LeafIcon size={80} color="green" />

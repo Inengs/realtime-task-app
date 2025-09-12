@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuth } from '../../context/AuthContext'; // ✅ use the context
+import { useAuth } from '../../contexts/AuthContext'; // ✅ use the context
 
 export default function LoginRegister() {
     const [activeTab, setActiveTab] = useState('login');

@@ -12,5 +12,5 @@ type Notifications struct {
 }
 
 type NotificationInput struct {
-	NotificationIDs []int `json:"notificationIDs" binding:"required,dive,gt=0"`
+	NotificationIDs []int `json:"notificationIDs" binding:"dive,gt=0" validate:"dive,gt=0"`
 }

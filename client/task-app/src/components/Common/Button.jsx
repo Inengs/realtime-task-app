@@ -1,6 +1,3 @@
-// Button.js (reusable component in a separate file)
-import React from 'react';
-
 const Button = ({ text, onClick }) => {
     return (
         <button

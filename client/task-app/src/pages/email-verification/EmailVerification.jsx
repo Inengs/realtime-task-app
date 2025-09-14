@@ -1,7 +1,7 @@
 // EmailVerificationPage.js
-import React, { useState, useEffect } from 'react';
-import Button from './Button';
-import api from './api'; // Import the API client
+import { useState, useEffect } from 'react';
+import Button from '../../components/Common/Button';
+import api from '../../services/api';
 
 // Simple envelope icon using emoji (replace with SVG or image for production)
 const EnvelopeIcon = () => (

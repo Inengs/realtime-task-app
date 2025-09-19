@@ -1,7 +1,7 @@
 import React from 'react';
-import Header from '../components/Header';
-import Button from '../components/Button';
-import api from '../services/api';
+import Header from '../../components/Header';
+import Button from '../../components/Common/Button';
+import api from '../../services/api';
 
 const ProfilePage = () => {
     const user = {

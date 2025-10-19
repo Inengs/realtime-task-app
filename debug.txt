@@ -1,0 +1,982 @@
+frontend
+src/components/common/Button.jsx
+const Button = ({ text, onClick }) => {
+    return (
+        <button
+            onClick={onClick}
+            style={{
+                backgroundColor: '#B2F2BB',
+                color: '#333',
+                padding: '10px 20px',
+                borderRadius: '20px',
+                border: 'none',
+                fontSize: '14px',
+                cursor: 'pointer',
+                width: '100%',
+                fontWeight: 'bold',
+            }}
+        >
+            {text}
+        </button>
+    );
+};
+
+export default Button;
+
+src/components/ActiveProjects.jsx
+// ActiveProjects.jsx
+export default function ActiveProjects({ projects }) {
+    return (
+        <section className="mt-6">
+            <h3 className="text-lg font-semibold">Active Projects</h3>
+            <ul className="list-disc ml-5">
+                {projects.map((p) => (
+                    <li key={p.id}>{p.name}</li>
+                ))}
+            </ul>
+        </section>
+    );
+}
+
+src/components/Header.jsx
+import { FiBell } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
+import { useNotifications } from "../context/NotificationContext";
+
+export default function Header({ onSearchChange, user, searchQuery }) {
+    const { unreadCount } = useNotifications();
+    const navigate = useNavigate();
+
+    return (
+        <div className="fixed top-0 w-full bg-white shadow-md p-4 flex justify-between items-center z-10">
+            <h1 className="text-2xl font-bold text-blue-600">TaskFlow</h1>
+
+            <form className="flex-1 flex justify-center">
+                <input
+                    type="text"
+                    placeholder="Search tasks or projects"
+                    className="border rounded px-3 py-1 w-64"
+                    onChange={(e) => onSearchChange(e.target.value)}
+                    value={searchQuery}
+                />
+            </form>
+
+            <div className="flex gap-6 items-center">
+                <div className="relative cursor-pointer" onClick={() => navigate("/notifications")}>
+                    <FiBell size={22} />
+                    {unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                            {unreadCount}
+                        </span>
+                    )}
+                </div>
+
+                {user?.avatar ? (
+                    <img
+                        src={user.avatar}
+                        alt="User Avatar"
+                        className="w-8 h-8 rounded-full object-cover"
+                    />
+                ) : (
+                    <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-sm font-medium">
+                        {user?.name?.[0]?.toUpperCase() || "U"}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+
+src/components/NewProjectModal.jsx
+// NewProjectModal.jsx
+import { useState } from "react";
+import api from "../api";
+
+export default function NewProjectModal({ onClose, onCreated }) {
+    const [name, setName] = useState("");
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        await api.post("/projects", { name });
+        onCreated();
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+            <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-xl border border-green-200">
+                <h3 className="text-2xl font-bold text-green-700 mb-4">New Project</h3>
+                <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Project name"
+                    className="border border-green-300 w-full px-4 py-2 mb-4 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+                <div className="flex justify-end gap-3">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-5 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100 transition duration-200 ease-in-out"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        className="px-5 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition duration-200 ease-in-out"
+                    >
+                        Save
+                    </button>
+                </div>
+            </form>
+        </div>
+    );
+}
+
+
+src/components/NewTaskModal.jsx
+// NewTaskModal.jsx
+import { useState } from "react";
+import api from "../api";
+
+export default function NewTaskModal({ onClose, onCreated }) {
+    const [title, setTitle] = useState("");
+    const [status, setStatus] = useState("pending");
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        await api.post("/tasks", { title, status });
+        onCreated();
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+            <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-xl border border-green-200">
+                <h3 className="text-2xl font-bold text-green-700 mb-4">New Task</h3>
+                <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Task title"
+                    className="border border-green-300 w-full px-4 py-2 mb-4 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+                <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                    className="border border-green-300 w-full px-4 py-2 mb-4 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                >
+                    <option value="pending">Pending</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="done">Done</option>
+                </select>
+                <div className="flex justify-end gap-3">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-5 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100 transition duration-200 ease-in-out"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        className="px-5 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition duration-200 ease-in-out"
+                    >
+                        Save
+                    </button>
+                </div>
+            </form>
+        </div>
+    );
+}
+
+
+src/components/UpcomingTasks.jsx
+// UpcomingTasks.jsx
+export default function UpcomingTasks({
+    tasks,
+    taskFilter,
+    setTaskFilter,
+    searchQuery,
+    setSearchQuery,
+}) {
+    return (
+        <section className="mt-6">
+            <h3 className="text-lg font-semibold">Upcoming Tasks</h3>
+
+            {/* Filters */}
+            <div className="flex gap-2 my-2">
+                <select
+                    value={taskFilter}
+                    onChange={(e) => setTaskFilter(e.target.value)}
+                    className="border px-2 py-1 rounded"
+                >
+                    <option value="All">All</option>
+                    <option value="pending">Pending</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="done">Done</option>
+                </select>
+
+                <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search tasks..."
+                    className="border px-2 py-1 rounded flex-1"
+                />
+            </div>
+
+            {/* Task List */}
+            <ul className="list-disc ml-5">
+                {tasks.map((t) => (
+                    <li key={t.id}>
+                        {t.title} — <i>{t.status}</i>
+                    </li>
+                ))}
+            </ul>
+        </section>
+    );
+}
+
+
+src/contexts/AuthContext.jsx
+import { createContext, useContext, useState, useEffect } from "react";
+import api from "../api"; // your axios instance
+
+// 1. Create the context
+const AuthContext = createContext();
+
+// 2. Create a provider component
+export function AuthProvider({ children }) {
+    const [user, setUser] = useState(null);   // logged-in user info
+    const [loading, setLoading] = useState(true); // for initial check
+
+    // On app load, check if user is already logged in (via cookie/session)
+    useEffect(() => {
+        api.get("/auth/me") // backend route that returns current user
+            .then(res => setUser(res.data.user))
+            .catch(() => setUser(null))
+            .finally(() => setLoading(false));
+    }, []);
+
+    // Login function (call backend)
+    const login = async (credentials) => {
+        const res = await api.post("/auth/login", credentials);
+        setUser(res.data.user);
+    };
+
+    // Logout function
+    const logout = async () => {
+        await api.post("/auth/logout");
+        setUser(null);
+    };
+
+    return (
+        <AuthContext.Provider value={{ user, setUser, login, logout, loading }}>
+            {children}
+        </AuthContext.Provider>
+    );
+}
+
+// 3. Helper hook for easy usage
+export function useAuth() {
+    return useContext(AuthContext);
+}
+
+
+src/contexts/NotificationContext.jsx
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import axios from "axios";
+
+const NotificationContext = createContext();
+
+export function useNotifications() {
+    return useContext(NotificationContext);
+}
+
+export function NotificationProvider({ user, children }) {
+    const [notifications, setNotifications] = useState([]);
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    // Fetch existing notifications (REST)
+    const fetchNotifications = useCallback(async () => {
+        if (!user?.id) return;
+        try {
+            const res = await axios.get(`/notifications/${user.id}`, { withCredentials: true });
+            setNotifications(res.data.notifications);
+            setUnreadCount(res.data.notifications.filter((n) => !n.isRead).length);
+        } catch (err) {
+            console.error("Error fetching notifications", err);
+        }
+    }, [user]);
+
+    // Mark notifications read
+    const markAsRead = async (ids = []) => {
+        if (!user?.id) return;
+        try {
+            await axios.patch(`/notifications/read/${user.id}`, { notificationIDs: ids }, { withCredentials: true });
+            // Optimistic update
+            setNotifications((prev) =>
+                prev.map((n) =>
+                    ids.length === 0 || ids.includes(n.id) ? { ...n, isRead: true } : n
+                )
+            );
+            setUnreadCount(0);
+        } catch (err) {
+            console.error("Error marking notifications read", err);
+        }
+    };
+
+    // WebSocket setup
+    useEffect(() => {
+        if (!user?.id) return;
+
+        // Connect to WebSocket
+        const ws = new WebSocket(`${import.meta.env.VITE_WS_URL}/ws/notifications`);
+
+        ws.onmessage = (event) => {
+            try {
+                const msg = JSON.parse(event.data);
+                if (msg.type === "notification") {
+                    setNotifications((prev) => [msg.data, ...prev]);
+                    setUnreadCount((prev) => prev + 1);
+                }
+            } catch (err) {
+                console.error("WebSocket parse error:", err);
+            }
+        };
+
+        ws.onerror = (err) => console.error("WebSocket error", err);
+
+        return () => {
+            ws.close();
+        };
+    }, [user]);
+
+    useEffect(() => {
+        fetchNotifications();
+    }, [fetchNotifications]);
+
+    return (
+        <NotificationContext.Provider
+            value={{ notifications, unreadCount, markAsRead, fetchNotifications }}
+        >
+            {children}
+        </NotificationContext.Provider>
+    );
+}
+
+
+src/pages/dashboard/Dashboard.jsx
+// DashboardPage.jsx
+import { useEffect, useState, useMemo } from "react";
+import api from "../../services/api";
+import { useAuth } from "../../contexts/AuthContext";
+import ActiveProjects from "../../components/ActiveProjects";
+import UpcomingTasks from "../../components/UpcomingTasks";
+import NewProjectModal from "../../components/NewProjectModal";
+import NewTaskModal from "../../components/NewTaskModal";
+import Header from "../../components/Header"; // ✅ import new Header
+
+export default function DashboardPage() {
+    const { user, loading } = useAuth();
+
+    const [projects, setProjects] = useState([]);
+    const [tasks, setTasks] = useState([]);
+    const [notifications, setNotifications] = useState([]);
+    const [showNewProjectModal, setShowNewProjectModal] = useState(false);
+    const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+    const [taskFilter, setTaskFilter] = useState("All");
+    const [searchQuery, setSearchQuery] = useState("");
+
+    const filteredTasks = useMemo(() => {
+        return tasks
+            .filter((t) => taskFilter === "All" || t.status === taskFilter)
+            .filter((t) =>
+                t.title.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+    }, [tasks, taskFilter, searchQuery]);
+
+    // 🔹 Fetchers
+    const fetchProjects = async () => {
+        try {
+            const res = await api.get("/projects");
+            setProjects(res.data.projects);
+        } catch (err) {
+            console.error("Failed to fetch projects:", err);
+        }
+    };
+
+    const fetchTasks = async () => {
+        try {
+            const res = await api.get("/tasks");
+            setTasks(res.data.tasks);
+        } catch (err) {
+            console.error("Failed to fetch tasks:", err);
+        }
+    };
+
+    const fetchNotifications = async () => {
+        try {
+            const res = await api.get("/notifications?unread=true");
+            setNotifications(res.data.notifications);
+        } catch (err) {
+            console.error("Failed to fetch notifications:", err);
+        }
+    };
+
+    // 🔹 WebSocket listeners
+    useEffect(() => {
+        if (!user) return;
+
+        fetchProjects();
+        fetchTasks();
+        fetchNotifications();
+
+        const projectSocket = new WebSocket("ws://localhost:8080/ws/projects");
+        const taskSocket = new WebSocket("ws://localhost:8080/ws/tasks");
+        const notifSocket = new WebSocket("ws://localhost:8080/ws/notifications");
+
+        projectSocket.onmessage = (e) => {
+            const msg = JSON.parse(e.data);
+            if (msg.type === "project_created")
+                setProjects((prev) => [...prev, msg.data]);
+            if (msg.type === "project_updated")
+                setProjects((prev) =>
+                    prev.map((p) => (p.id === msg.data.id ? msg.data : p))
+                );
+            if (msg.type === "project_deleted")
+                setProjects((prev) => prev.filter((p) => p.id !== msg.data.id));
+        };
+
+        taskSocket.onmessage = (e) => {
+            const msg = JSON.parse(e.data);
+            if (msg.type === "task_created")
+                setTasks((prev) => [...prev, msg.data]);
+            if (msg.type === "task_updated")
+                setTasks((prev) =>
+                    prev.map((t) => (t.id === msg.data.id ? msg.data : t))
+                );
+            if (msg.type === "task_deleted")
+                setTasks((prev) => prev.filter((t) => t.id !== msg.data.id));
+        };
+
+        notifSocket.onmessage = () => {
+            fetchNotifications();
+        };
+
+        return () => {
+            projectSocket.close();
+            taskSocket.close();
+            notifSocket.close();
+        };
+    }, [user]);
+
+    if (loading) return <p>Loading...</p>;
+    if (!user) return <p>You must log in to view the dashboard.</p>;
+
+    return (
+        <div className="pt-20 px-4"> {/* pt-20 = padding for fixed header */}
+            {/* ✅ Use Header component */}
+            <Header
+                unreadCount={notifications.length}
+                onSearchChange={setSearchQuery}
+                searchQuery={searchQuery}
+                user={user}
+            />
+
+            <div className="flex justify-end mt-4 gap-2">
+                <button
+                    onClick={() => setShowNewProjectModal(true)}
+                    className="px-4 py-2 bg-blue-500 text-white rounded"
+                >
+                    + New Project
+                </button>
+                <button
+                    onClick={() => setShowNewTaskModal(true)}
+                    className="px-4 py-2 bg-green-500 text-white rounded"
+                >
+                    + New Task
+                </button>
+            </div>
+
+            <ActiveProjects projects={projects} />
+
+            <UpcomingTasks
+                tasks={filteredTasks}
+                taskFilter={taskFilter}
+                setTaskFilter={setTaskFilter}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+            />
+
+            {showNewProjectModal && (
+                <NewProjectModal
+                    onClose={() => setShowNewProjectModal(false)}
+                    onCreated={fetchProjects}
+                />
+            )}
+            {showNewTaskModal && (
+                <NewTaskModal
+                    onClose={() => setShowNewTaskModal(false)}
+                    onCreated={fetchTasks}
+                />
+            )}
+        </div>
+    );
+}
+
+src/pages/email-verification/Emailverification.jsx
+// EmailVerificationPage.js
+import { useState, useEffect } from 'react';
+import Button from '../../components/Common/Button';
+import api from '../../services/api';
+
+// Simple envelope icon using emoji (replace with SVG or image for production)
+const EnvelopeIcon = () => (
+    <div style={{ fontSize: '120px', color: '#4CAF50', marginBottom: '20px' }}>
+        ✉️
+    </div>
+);
+
+const EmailVerificationPage = () => {
+    const [message, setMessage] = useState('Check Your Email');
+    const [error, setError] = useState('');
+    const [token, setToken] = useState('');
+
+    useEffect(() => {
+        // Extract token from URL query parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const tokenFromUrl = urlParams.get('token');
+        if (tokenFromUrl) {
+            setToken(tokenFromUrl);
+            verifyEmail(tokenFromUrl);
+        }
+    }, []);
+
+    const verifyEmail = async (token) => {
+        try {
+            const response = await api.get(`/auth/verify-email?token=${token}`);
+            setMessage(response.data.message || 'Email verified successfully!');
+        } catch (err) {
+            setError(err.response?.data?.error || 'Verification failed. Please try again.');
+        }
+    };
+
+    const handleResend = async () => {
+        try {
+            // Assuming you have a resend endpoint or logic to trigger resend
+            const response = await api.post('/auth/register/resend', { email: 'user@example.com' }); // Replace with actual email
+            setMessage(response.data.message || 'Verification email resent. Please check your inbox.');
+            setError('');
+        } catch (err) {
+            setError(err.response?.data?.error || 'Failed to resend verification email.');
+        }
+    };
+
+    return (
+        <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100vh',
+            backgroundColor: '#f0f0f0',
+            fontFamily: 'Arial, sans-serif',
+        }}>
+            <EnvelopeIcon />
+            <div style={{
+                backgroundColor: 'white',
+                padding: '20px',
+                borderRadius: '10px',
+                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
+                textAlign: 'center',
+                maxWidth: '300px',
+            }}>
+                <h2 style={{ margin: '0 0 10px 0', fontSize: '20px' }}>{message}</h2>
+                {error && <p style={{ color: 'red', margin: '0 0 20px 0', fontSize: '14px' }}>{error}</p>}
+                {!token && (
+                    <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: '#666' }}>
+                        We've sent a verification link to your email address. Please check your inbox and click on the link to verify your account.
+                    </p>
+                )}
+                <Button text="Resend Verification Email" onClick={handleResend} />
+            </div>
+        </div>
+    );
+};
+
+export default EmailVerificationPage;
+
+src/pages/login register/LoginRegister.jsx
+import { useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext'; // ✅ use the context
+
+export default function LoginRegister() {
+    const [activeTab, setActiveTab] = useState('login');
+    const [formData, setFormData] = useState({
+        username: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+    });
+    const [message, setMessage] = useState('');
+
+    const { login } = useAuth(); // ✅ get login function from context
+
+    // Handle form field changes
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    // Handle Login submit
+    const handleLogin = async (e) => {
+        e.preventDefault();
+        try {
+            await login({
+                email: formData.email,
+                password: formData.password,
+            });
+
+            setMessage(`Welcome back, ${formData.email}`);
+        } catch (err) {
+            setMessage(`Login failed: ${err.response?.data?.error || err.message}`);
+        }
+    };
+
+    // Handle Register submit
+    const handleRegister = async (e) => {
+        e.preventDefault();
+        try {
+            const res = await api.post('/auth/register', {
+                username: formData.username,
+                email: formData.email,
+                password: formData.password,
+            });
+
+            setMessage(`Account created for ${res.data.username || formData.username}`);
+
+            // Option 1: Auto-login after registration
+            await login({
+                email: formData.email,
+                password: formData.password,
+            });
+
+            // Option 2 (alternative): Switch back to login tab
+            // setActiveTab('login');
+        } catch (err) {
+            setMessage(`Register failed: ${err.response?.data?.error || err.message}`);
+        }
+    };
+
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-100">
+            <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6">
+                {/* Tabs */}
+                <div className="flex justify-around mb-6">
+                    <button
+                        onClick={() => setActiveTab('login')}
+                        className={`w-1/2 py-2 text-lg font-semibold rounded-t-xl ${activeTab === 'login'
+                            ? 'bg-green-500 text-white'
+                            : 'bg-gray-200 text-gray-600'
+                            }`}
+                    >
+                        Login
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('register')}
+                        className={`w-1/2 py-2 text-lg font-semibold rounded-t-xl ${activeTab === 'register'
+                            ? 'bg-green-500 text-white'
+                            : 'bg-gray-200 text-gray-600'
+                            }`}
+                    >
+                        Register
+                    </button>
+                </div>
+
+                {/* Login Form */}
+                {activeTab === 'login' && (
+                    <form className="flex flex-col space-y-4" onSubmit={handleLogin}>
+                        <input
+                            type="email"
+                            name="email"
+                            placeholder="Email"
+                            className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-400"
+                            value={formData.email}
+                            onChange={handleChange}
+                            required
+                        />
+                        <input
+                            type="password"
+                            name="password"
+                            placeholder="Password"
+                            className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-400"
+                            value={formData.password}
+                            onChange={handleChange}
+                            required
+                        />
+                        <button
+                            type="submit"
+                            className="bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition"
+                        >
+                            Login
+                        </button>
+
+                        <a href="#" className="text-sm text-blue-500 text-center hover:underline">
+                            Forgot password?
+                        </a>
+                    </form>
+                )}
+
+                {/* Register Form */}
+                {activeTab === 'register' && (
+                    <form className="flex flex-col space-y-4" onSubmit={handleRegister}>
+                        <input
+                            type="text"
+                            name="username"
+                            placeholder="Username"
+                            className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-400"
+                            value={formData.username}
+                            onChange={handleChange}
+                            required
+                        />
+                        <input
+                            type="email"
+                            name="email"
+                            placeholder="Email"
+                            className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-400"
+                            value={formData.email}
+                            onChange={handleChange}
+                            required
+                        />
+                        <input
+                            type="password"
+                            name="password"
+                            placeholder="Password"
+                            className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-400"
+                            value={formData.password}
+                            onChange={handleChange}
+                            required
+                        />
+                        <input
+                            type="password"
+                            name="confirmPassword"
+                            placeholder="Confirm Password"
+                            className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-400"
+                            value={formData.confirmPassword}
+                            onChange={handleChange}
+                            required
+                        />
+                        <button
+                            type="submit"
+                            className="bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition"
+                        >
+                            Create Account
+                        </button>
+                    </form>
+                )}
+
+                {/* Response Message */}
+                {message && (
+                    <p className="mt-4 text-center text-sm font-medium text-gray-700">
+                        {message}
+                    </p>
+                )}
+            </div>
+        </div>
+    );
+}
+
+
+
+src/pages/notifications/Notifications.jsx
+import { useNotifications } from "../context/NotificationContext";
+import Button from "../components/Button";
+
+export default function NotificationsPage() {
+    const { notifications, markAsRead } = useNotifications();
+
+    if (!notifications.length) {
+        return <p className="p-4">No notifications yet.</p>;
+    }
+
+    return (
+        <div className="max-w-2xl mx-auto mt-20 p-4">
+            <h2 className="text-2xl font-bold mb-4">Notifications</h2>
+
+            <Button text="Mark All as Read" onClick={() => markAsRead([])} />
+
+            <ul className="mt-4 space-y-3">
+                {notifications.map((n) => (
+                    <li
+                        key={n.id}
+                        className={`p-3 border rounded-lg shadow-sm ${n.isRead ? "bg-gray-100" : "bg-blue-50"
+                            }`}
+                    >
+                        <p className="text-sm">{n.message}</p>
+                        <span className="text-xs text-gray-500">
+                            {new Date(n.createdAt).toLocaleString()}
+                        </span>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
+
+src/pages/profile/Profile.jsx
+import React from 'react';
+import Header from '../../components/Header';
+import Button from '../../components/Common/Button';
+import api from '../../services/api';
+
+const ProfilePage = () => {
+    const user = {
+        name: "Alex Johnson",
+        role: "Project Manager",
+        availability: "9:00 AM - 5:00 PM",
+        email: "alex.johnson@taskflow.com",
+        avatar: "https://via.placeholder.com/150",
+    };
+
+    return (
+        <div className="min-h-screen bg-gray-100 pt-20">
+            <Header
+                unreadCount={3}
+                onSearchChange={() => { }}
+                user={user}
+                searchQuery=""
+            />
+            <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6 mt-6">
+                <div className="flex flex-col items-center">
+                    <img
+                        src={user.avatar}
+                        alt="User Avatar"
+                        className="w-24 h-24 rounded-full object-cover mb-4"
+                    />
+                    <h2 className="text-2xl font-bold">{user.name}</h2>
+                    <p className="text-gray-600">{user.role}</p>
+                    <p className="text-gray-500 text-sm">Available for tasks</p>
+                    <p className="text-gray-500 text-sm">{user.availability}</p>
+                    <a href={`mailto:${user.email}`} className="text-blue-600 mt-2">
+                        {user.email}
+                    </a>
+                    <div className="mt-4 space-x-4">
+                        <button className="text-blue-600">Call</button>
+                        <button className="text-blue-600">Video</button>
+                        <button className="text-blue-600">Chat</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default ProfilePage;
+
+
+
+src/pages/Project-management/ProjectManagement.jsx
+import { useState, useEffect } from 'react';
+import Header from '../../components/Header';
+import Button from '../../components/Common/Button';
+import NewProjectModal from '../../components/NewProjectModal';
+import ActiveProjects from '../../components/ActiveProjects';
+import api from '../../services/api';
+
+const ProjectManagementPage = () => {
+    const [projects, setProjects] = useState([]);
+    const [showModal, setShowModal] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const [user, setUser] = useState({ name: 'John Doe' });
+    const [searchQuery, setSearchQuery] = useState('');
+
+    useEffect(() => {
+        fetchProjects();
+    }, []);
+
+    const fetchProjects = async () => {
+        try {
+            const response = await api.get('/projects');
+            setProjects(response.data.projects);
+        } catch (error) {
+            console.error('Error fetching projects:', error);
+        }
+    };
+
+    const handleSearchChange = (query) => {
+        setSearchQuery(query);
+    };
+
+    const handleProjectCreated = () => {
+        fetchProjects();
+        setShowModal(false);
+    };
+
+    const filteredProjects = projects.filter(project =>
+        project.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    return (
+        <div className="min-h-screen bg-gray-100 p-6 pt-20">
+            <Header
+                unreadCount={unreadCount}
+                onSearchChange={handleSearchChange}
+                user={user}
+                searchQuery={searchQuery}
+            />
+            <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-xl font-semibold mb-4">Project Timeline</h2>
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                        <div className="w-2 h-8 bg-purple-300"></div>
+                        <div className="w-16 h-8 bg-green-300"></div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-2 h-8 bg-purple-300"></div>
+                        <div className="w-12 h-8 bg-green-300"></div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-2 h-8 bg-purple-300"></div>
+                        <div className="w-8 h-8 bg-green-300"></div>
+                    </div>
+                </div>
+                <h2 className="text-lg font-semibold mt-6 mb-2">Current Tasks</h2>
+                <div className="space-y-2">
+                    <div className="border rounded p-2">Design Mockups - Status: In Progress</div>
+                    <div className="border rounded p-2">Develop Login Screen - Status: Completed</div>
+                    <div className="border rounded p-2">Testing Phase - Status: Not Started</div>
+                </div>
+                <h2 className="text-lg font-semibold mt-6 mb-2">Team Members</h2>
+                <div className="flex gap-2">
+                    <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">A</div>
+                    <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">B</div>
+                    <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">C</div>
+                </div>
+                <div className="mt-6">
+                    <Button text="Edit Project Details" onClick={() => setShowModal(true)} />
+                    <div className="mt-2 border rounded p-2">
+                        <input type="text" placeholder="Project Name" className="w-full p-1 border rounded" />
+                        <textarea placeholder="Project Description" className="w-full p-1 border rounded mt-2"></textarea>
+                        <Button text="Save Changes" onClick={() => { }} />
+                    </div>
+                </div>
+            </div>
+            {showModal && <NewProjectModal onClose={() => setShowModal(false)} onCreated={handleProjectCreated} />}
+            <ActiveProjects projects={filteredProjects} />
+        </div>
+    );
+};
+
+export default ProjectManagementPage;
+
+
+src/
+
+
+
+
+
+

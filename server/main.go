@@ -15,7 +15,26 @@ import (
 	_ "github.com/lib/pq"
 )
 
+func validateEnv() {
+    required := []string{
+        "SESSION_SECRET",
+        "EMAIL_FROM",
+        "EMAIL_USERNAME",
+        "EMAIL_PASSWORD",
+        "EMAIL_SMTP_HOST",
+        "EMAIL_SMTP_PORT",
+    }
+    
+    for _, key := range required {
+        if os.Getenv(key) == "" {
+            log.Fatalf("Required environment variable %s is missing", key)
+        }
+    }
+}
+
 func main() {
+	validateEnv()
+
 	// Connect to database
 	database, err := config.ConnectDB()
 	if err != nil {
@@ -44,9 +63,10 @@ func main() {
 
 	// Configure CORS for frontend
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
-		AllowHeaders:     []string{"Origin", "Content-Type"},
+		AllowOrigins:     []string{"http://localhost:5173", "http://localhost:3000"}, // Add Vite default port
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Cookie"},
+		ExposeHeaders:    []string{"Set-Cookie"},
 		AllowCredentials: true,
 	}))
 

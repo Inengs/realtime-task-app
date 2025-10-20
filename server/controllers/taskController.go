@@ -22,7 +22,7 @@ func TaskListFunc(c *gin.Context) {
 	}
 	userIDInt, _ := userID.(int)
 
-	rows, err := db.Query(`SELECT id, user_id, title, description, status, created_at, updated_at FROM tasks WHERE user_id = $1`, userIDInt) // query all tasks from database
+	rows, err := db.Query(`SELECT id, user_id, project_id, title, description, status, created_at, updated_at FROM tasks WHERE user_id = $1`, userIDInt) // query all tasks from database
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return

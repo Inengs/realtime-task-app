@@ -1,42 +1,99 @@
+/* Center the app content with responsive padding */
 #root {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 1rem; /* Reduced padding for smaller screens */
   text-align: center;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+/* Navigation bar styling */
+.tab-nav {
+  display: flex;
+  justify-content: center; /* Center tabs for better alignment */
+  gap: 1rem; /* Consistent spacing between tabs */
+  background: #e8f5e9; /* Light green background to match theme */
+  padding: 1rem;
+  border-bottom: 2px solid #4caf50; /* Green border to reinforce theme */
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
+/* Tab link styling */
+.tab-link {
+  text-decoration: none;
+  color: #1b5e20; /* Dark green for better contrast */
+  font-weight: 600;
+  padding: 0.5rem 1rem; /* Larger clickable area */
+  transition: color 0.2s, background-color 0.2s; /* Smooth transitions */
+}
+
+/* Hover effect for non-active tabs */
+.tab-link:hover {
+  background-color: #c8e6c9; /* Subtle green background on hover */
+  border-radius: 4px;
+}
+
+/* Active tab styling */
+.tab-link.active {
+  color: #2e7d32; /* Vibrant green for active state */
+  background-color: #c8e6c9; /* Light green background */
+  border-bottom: 3px solid #2e7d32; /* Thicker green underline */
+  border-radius: 4px 4px 0 0; /* Rounded top corners */
+}
+
+/* Focus state for accessibility */
+.tab-link:focus {
+  outline: 2px solid #4caf50; /* Green outline for keyboard navigation */
+  outline-offset: 2px;
+}
+
+/* Main content styling */
+main {
+  padding: 1.5rem; /* Consistent padding for content */
+  min-height: calc(
+    100vh - 60px
+  ); /* Ensure content fills viewport, accounting for nav height */
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  #root {
+    padding: 0.5rem; /* Less padding on mobile */
   }
-  to {
-    transform: rotate(360deg);
+
+  .tab-nav {
+    flex-wrap: wrap; /* Allow tabs to wrap if needed */
+    gap: 0.5rem;
+    justify-content: space-around; /* Revert to space-around for mobile */
+  }
+
+  .tab-link {
+    font-size: 0.9rem; /* Smaller font for mobile */
+    padding: 0.5rem 0.75rem;
   }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
+@media (max-width: 480px) {
+  .tab-nav {
+    flex-direction: column; /* Stack tabs vertically on very small screens */
+    align-items: center;
+  }
+
+  .tab-link {
+    width: 100%; /* Full-width tabs for mobile */
+    text-align: center;
+    padding: 0.75rem;
   }
 }
 
+/* Optional: Keep card and read-the-docs if used in child components */
 .card {
-  padding: 2em;
+  padding: 1.5rem;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .read-the-docs {
-  color: #888;
+  color: #616161; /* Slightly darker for better contrast */
 }
+
+/* Remove logo styles if unused */

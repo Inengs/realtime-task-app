@@ -1,4 +1,7 @@
-import { ReactComponent as LeafSvg } from "../../assets/images/logo-2.svg";
+import LeafSvg from "../../assets/images/logo-2.svg?react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
+import { useEffect } from "react";
 
 function IntroHeader() {
   return <h1 className="text-3xl text-gray-800 font-bold">TaskFlow</h1>;

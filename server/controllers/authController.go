@@ -189,6 +189,8 @@ func VerifyEmail(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB)
 	token := c.Query("token")
 
+	log.Printf("Verification attempt with token: %s", token) // ✅ Add logging
+
 	if token == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Token is required"})
 		return
@@ -204,17 +206,20 @@ func VerifyEmail(c *gin.Context) {
 
 	if err == sql.ErrNoRows {
 		// Token doesn't exist
+		log.Printf("Token not found: %s", token)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Invalid token"})
 		return
 	}
 	if err != nil {
 		// DB error
+		log.Printf("Database error on token lookup: %v", err) // ✅ Add logging
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 
 	// Step 2: Check if token expired
 	if time.Now().After(expiry) {
+		log.Printf("Token expired: %s (expiry: %v)", token, expiry) // ✅ Add logging
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Token expired"})
 		return
 	}
@@ -226,6 +231,7 @@ func VerifyEmail(c *gin.Context) {
 		WHERE verification_token = $1
 	`, token)
 	if err != nil {
+		log.Printf("Database error on update: %v", err) // ✅ Add logging
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
@@ -233,11 +239,13 @@ func VerifyEmail(c *gin.Context) {
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
 		// Shouldn't happen because we already checked existence
+		log.Printf("No rows affected for token: %s", token) // ✅ Add logging
 		c.JSON(http.StatusNotFound, gin.H{"error": "Invalid or expired token"})
 		return
 	}
 
 	// Step 4: Success
+	log.Printf("Email verified successfully for token: %s", token) // ✅ Add logging
 	c.JSON(http.StatusOK, gin.H{"message": "Email verified successfully!"})
 }
 
@@ -364,23 +372,41 @@ func MeFunc(c *gin.Context) {
 	session, err := middleware.Store.Get(c.Request, "auth-session")
 	if err != nil {
 		// Return 500 if session store fails
+		log.Printf("Session error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Session error"})
 		return
 	}
+	log.Printf("Session values: %v", session.Values)
 
 	// Get user_id from session (guaranteed by AuthMiddleware)
-	userID, _ := session.Values["user_id"].(int)
+	userID, ok := session.Values["user_id"].(int)
+
+	if !ok {
+		log.Printf("Failed to get user_id from session: value=%v, type=%T", session.Values["user_id"], session.Values["user_id"])
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
+        return
+	}
+
+	if userID == 0 {
+        log.Printf("user_id is 0, likely invalid session")
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
+        return
+    }
+    log.Printf("Retrieved user_id from session: %d", userID) // Debug: Log user_id
+
 
 	// Query user details from database
 	var user models.UserResponse
 	query := `SELECT id, username, email FROM users WHERE id=$1`
 	err = db.QueryRow(query, userID).Scan(&user.UserID, &user.Username, &user.Email)
 	if err == sql.ErrNoRows {
+		log.Printf("User not found for user_id: %d", userID) // Debug: Log missing user
 		// Return 404 if user not found (handles edge cases like deleted users)
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
 	if err != nil {
+		log.Printf("Database error for user_id %d: %v", userID, err) // Debug: Log database error
 		// Return 500 for database errors
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
@@ -388,5 +414,82 @@ func MeFunc(c *gin.Context) {
 
 	// SUCCESS RESPONSE
 	// Return user details
+	log.Printf("Successfully retrieved user: id=%d, username=%s, email=%s", user.UserID, user.Username, user.Email) // Debug: Log user details
 	c.JSON(http.StatusOK, gin.H{"message": "User info retrieved", "user": user})
+}
+
+
+func ResendVerificationEmail(c *gin.Context) {
+	db := c.MustGet("db").(*sql.DB)
+
+	// Get email from request body
+	var input struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Valid email is required"})
+		return
+	}
+
+	// Sanitize email
+	email, err := SanitizeEmail(input.Email)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email format"})
+		return
+	}
+
+	// Check if user exists and is not verified
+	var userID int
+	var verified bool
+	var currentToken sql.NullString
+	err = db.QueryRow(
+		`SELECT id, verified, verification_token FROM users WHERE email = $1`,
+		email,
+	).Scan(&userID, &verified, &currentToken)
+
+	if err == sql.ErrNoRows {
+		// Don't reveal if user exists (security)
+		c.JSON(http.StatusOK, gin.H{"message": "If the email exists, a verification link has been sent."})
+		return
+	}
+	if err != nil {
+		log.Printf("Database error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
+	// If already verified
+	if verified {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email is already verified"})
+		return
+	}
+
+	// Generate new token
+	token, err := utils.GenerateVerificationToken()
+	if err != nil {
+		log.Printf("Token generation error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		return
+	}
+
+	// Update token and expiry
+	expiry := time.Now().Add(24 * time.Hour)
+	_, err = db.Exec(
+		`UPDATE users SET verification_token = $1, verification_token_expiry = $2 WHERE id = $3`,
+		token, expiry, userID,
+	)
+	if err != nil {
+		log.Printf("Token update error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
+	// Send email
+	if err := utils.SendVerificationEmail(email, token); err != nil {
+		log.Printf("Email sending error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send verification email"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Verification email resent successfully"})
 }

@@ -14,4 +14,5 @@ func RegisterAuthRoutes(router *gin.Engine) {
 	auth.POST("/logout", middleware.AuthMiddleware(), controllers.LogoutFunc)
 	auth.GET("/me", middleware.AuthMiddleware(), controllers.MeFunc)
 	auth.GET("/verify-email", controllers.VerifyEmail)
+	auth.POST("/resend-verification", middleware.RateLimitMiddleware(), controllers.ResendVerificationEmail)
 }

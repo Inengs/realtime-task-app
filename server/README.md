@@ -715,7 +715,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-For support, email or open an issue in the GitHub repository.
+For support, email inengiye@proton.me or open an issue in the GitHub repository.
 
 ---
 

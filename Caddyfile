@@ -1,0 +1,7 @@
+taskflow.inengiyeemmanuel.site {
+    reverse_proxy web:80
+}
+
+taskflow-api.inengiyeemmanuel.site {
+    reverse_proxy api:8080
+}

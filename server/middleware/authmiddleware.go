@@ -2,27 +2,9 @@ package middleware
 
 import (
 	"net/http"
-	"os"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/sessions"
 )
-
-// Store is a global cookie store for session management
-// Exported to be accessible by other packages
-// Uses a secure key; in production, load from environment variable
-var Store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_SECRET")))
-
-func init() {
-    // Configure session options
-    Store.Options = &sessions.Options{
-        Path:     "/",
-        MaxAge:   86400 * 7, // 7 days
-        HttpOnly: true,
-        Secure:   true, // Set to true in production with HTTPS
-        SameSite: http.SameSiteLaxMode,
-    }
-}
 
 // AuthMiddleware checks for a valid session
 func AuthMiddleware() gin.HandlerFunc {

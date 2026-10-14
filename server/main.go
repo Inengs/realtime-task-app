@@ -2,13 +2,13 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/Inengs/realtime-task-app/config"
 	"github.com/Inengs/realtime-task-app/db"
 	"github.com/Inengs/realtime-task-app/middleware"
 	"github.com/Inengs/realtime-task-app/routes"
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/sessions"
 	_ "github.com/joho/godotenv/autoload"
@@ -16,20 +16,20 @@ import (
 )
 
 func validateEnv() {
-    required := []string{
-        "SESSION_SECRET",
-        "EMAIL_FROM",
-        "EMAIL_USERNAME",
-        "EMAIL_PASSWORD",
-        "EMAIL_SMTP_HOST",
-        "EMAIL_SMTP_PORT",
-    }
-    
-    for _, key := range required {
-        if os.Getenv(key) == "" {
-            log.Fatalf("Required environment variable %s is missing", key)
-        }
-    }
+	required := []string{
+		"SESSION_SECRET",
+		"EMAIL_FROM",
+		"EMAIL_USERNAME",
+		"EMAIL_PASSWORD",
+		"EMAIL_SMTP_HOST",
+		"EMAIL_SMTP_PORT",
+	}
+
+	for _, key := range required {
+		if os.Getenv(key) == "" {
+			log.Fatalf("Required environment variable %s is missing", key)
+		}
+	}
 }
 
 func main() {
@@ -56,19 +56,12 @@ func main() {
 		c.Next()
 	})
 
+	router.Use(corsMiddleware())
+
 	// Check if SESSION_SECRET IS MISSING
 	if os.Getenv("SESSION_SECRET") == "" {
 		log.Fatal("SESSION_SECRET is required")
 	}
-
-	// Configure CORS for frontend
-	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173", "http://localhost:3000"}, // Add Vite default port
-		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Cookie"},
-		ExposeHeaders:    []string{"Set-Cookie"},
-		AllowCredentials: true,
-	}))
 
 	// Initialize session store
 	middleware.Store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_SECRET")))
@@ -97,5 +90,23 @@ func main() {
 	log.Printf("Server starting on :%s", port)
 	if err := router.Run(":" + port); err != nil {
 		log.Fatalf("Server failed: %v", err)
+	}
+}
+
+func corsMiddleware() gin.HandlerFunc {
+	allowed := os.Getenv("FRONTEND_URL")
+	return func(c *gin.Context) {
+		origin := c.Request.Header.Get("Origin")
+		if allowed != "" && origin == allowed {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Access-Control-Allow-Credentials", "true")
+			c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		}
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
 	}
 }

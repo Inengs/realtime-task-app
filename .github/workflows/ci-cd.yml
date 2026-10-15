@@ -47,4 +47,4 @@ jobs:
             docker compose up -d --build
             docker image prune -f
             sleep 10
-            curl -f -k https://localhost > /dev/null && echo "✅ Site is up"
+            curl -f http://localhost > /dev/null && echo "✅ Site is up"

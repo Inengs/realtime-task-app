@@ -12,4 +12,4 @@ COPY --from=builder /taskflow /taskflow
 
 ENV PORT=8080
 EXPOSE 8080
-CMD ["taskflow"]
+CMD ["/taskflow"]

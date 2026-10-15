@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import Button from "../../components/common/Button";
+import Button from "../../components/Common/Button";
 import api from "../../services/api";
 
 const EnvelopeIcon = () => (

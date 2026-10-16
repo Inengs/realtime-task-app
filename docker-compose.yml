@@ -24,7 +24,7 @@ services:
       DB_NAME: taskapp
       DB_SSLMODE: disable
       SESSION_SECRET: dev-secret
-      FRONTEND_URL: https://taskflow-api.inengiyeemmanuel.site
+      FRONTEND_URL: https://taskflow.inengiyeemmanuel.site
       APP_BASE_URL: https://taskflow.inengiyeemmanuel.site
       APP_ENV: development
       PORT: 8080

@@ -13,9 +13,9 @@ export function NotificationProvider({ user, children }) {
 
     // Fetch existing notifications (REST)
     const fetchNotifications = useCallback(async () => {
-        if (!user?.id) return;
+        if (!user?.user_id) return;
         try {
-            const res = await axios.get(`/notifications/${user.id}`, { withCredentials: true });
+            const res = await api.get(`/notifications/${user.user_id}`);
             setNotifications(res.data.notifications);
             setUnreadCount(res.data.notifications.filter((n) => !n.isRead).length);
         } catch (err) {
@@ -23,16 +23,12 @@ export function NotificationProvider({ user, children }) {
         }
     }, [user]);
 
-    // Mark notifications read
     const markAsRead = async (ids = []) => {
-        if (!user?.id) return;
+        if (!user?.user_id) return;
         try {
-            await axios.patch(`/notifications/read/${user.id}`, { notificationIDs: ids }, { withCredentials: true });
-            // Optimistic update
+            await api.patch(`/notifications/read/${user.user_id}`, { notificationIDs: ids });
             setNotifications((prev) =>
-                prev.map((n) =>
-                    ids.length === 0 || ids.includes(n.id) ? { ...n, isRead: true } : n
-                )
+                prev.map((n) => (ids.length === 0 || ids.includes(n.id) ? { ...n, isRead: true } : n))
             );
             setUnreadCount(0);
         } catch (err) {

@@ -24,8 +24,8 @@ services:
       DB_NAME: taskapp
       DB_SSLMODE: disable
       SESSION_SECRET: dev-secret
-      FRONTEND_URL: http://localhost:3000
-      APP_BASE_URL: http://localhost:3000
+      FRONTEND_URL: https://taskflow-api.inengiyeemmanuel.site
+      APP_BASE_URL: https://taskflow.inengiyeemmanuel.site
       APP_ENV: development
       PORT: 8080
       EMAIL_FROM: ${EMAIL_FROM}

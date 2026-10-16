@@ -32,14 +32,6 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required,min=6,max=32"`
 }
 
-// // ValidateEmail checks if the email format is valid using a regex
-// func ValidateEmail(f1 validator.FieldLevel) bool {
-// 	email := f1.Field().String()
-// 	re := `^[a-z0-9]+([._-]?[a-z0-9]+)*@[a-z0-9-]+\.[a-z]{2,}$`
-// 	matched, _ := regexp.MatchString(re, email)
-// 	return matched
-// }
-
 // SanitizeInput removes control characters and trims whitespace
 func SanitizeInput(input string) string {
 	// Remove control characters (ASCII 0-31, except allowed ones like tab)
@@ -76,6 +68,18 @@ func SanitizeEmail(email string) (string, error) {
 	return sanitized, nil
 }
 
+// RegisterFunc creates a new user account
+//
+//	@Summary		Register a new user
+//	@Description	Creates an unverified account and emails a verification link. Rate-limited.
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		controllers.User	true	"Registration details"
+//	@Success		201		{object}	map[string]any		"user_id + message"
+//	@Failure		400		{object}	map[string]any		"Invalid input"
+//	@Failure		409		{object}	map[string]any		"Username or email taken"
+//	@Router			/auth/register [post]
 func RegisterFunc(c *gin.Context) {
 	// Get database connection
 	db := c.MustGet("db").(*sql.DB)
@@ -249,6 +253,18 @@ func VerifyEmail(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Email verified successfully!"})
 }
 
+// LoginFunc authenticates a user and sets the session cookie
+//
+//	@Summary		Log in
+//	@Description	Verifies credentials, starts a session (HTTP-only cookie).
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		controllers.LoginRequest	true	"Credentials"
+//	@Success		200		{object}	map[string]any				"message + user_id"
+//	@Failure		401		{object}	map[string]any
+//	@Failure		429		{object}	map[string]any
+//	@Router			/auth/login [post]
 func LoginFunc(c *gin.Context) {
 	// Get database connection from context
 	db := c.MustGet("db").(*sql.DB)
@@ -330,6 +346,15 @@ func LoginFunc(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Login successful", "user_id": userID})
 }
 
+// LogoutFunc clears the current session
+//
+//	@Summary	Log out
+//	@Tags		auth
+//	@Produce	json
+//	@Security	SessionCookie
+//	@Success	200	{object}	map[string]any
+//	@Failure	401	{object}	map[string]any
+//	@Router		/auth/logout [post]
 func LogoutFunc(c *gin.Context) {
 	// Get session from request
 	session, err := middleware.Store.Get(c.Request, "auth-session")
@@ -364,6 +389,15 @@ func LogoutFunc(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Logout successful"})
 }
 
+// MeFunc returns the currently authenticated user
+//
+//	@Summary	Current user
+//	@Tags		auth
+//	@Produce	json
+//	@Security	SessionCookie
+//	@Success	200	{object}	map[string]any	"message + user"
+//	@Failure	401	{object}	map[string]any
+//	@Router		/auth/me [get]
 func MeFunc(c *gin.Context) {
 	// Get database connection from context
 	db := c.MustGet("db").(*sql.DB)
@@ -384,16 +418,15 @@ func MeFunc(c *gin.Context) {
 	if !ok {
 		log.Printf("Failed to get user_id from session: value=%v, type=%T", session.Values["user_id"], session.Values["user_id"])
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
-        return
+		return
 	}
 
 	if userID == 0 {
-        log.Printf("user_id is 0, likely invalid session")
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
-        return
-    }
-    log.Printf("Retrieved user_id from session: %d", userID) // Debug: Log user_id
-
+		log.Printf("user_id is 0, likely invalid session")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
+		return
+	}
+	log.Printf("Retrieved user_id from session: %d", userID) // Debug: Log user_id
 
 	// Query user details from database
 	var user models.UserResponse
@@ -418,7 +451,15 @@ func MeFunc(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "User info retrieved", "user": user})
 }
 
-
+// ResendVerificationEmail resends the verification link
+//
+//	@Summary	Resend verification email
+//	@Tags		auth
+//	@Accept		json
+//	@Produce	json
+//	@Param		request	body		object	true	"{ \"email\": \"...\" }"
+//	@Success	200		{object}	map[string]any
+//	@Router		/auth/resend-verification [post]
 func ResendVerificationEmail(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB)
 

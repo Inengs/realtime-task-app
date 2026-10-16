@@ -80,7 +80,7 @@ func SendVerificationEmail(toEmail, token string) error {
 		log.Printf("SMTP Send Error: %v", err)
 		return err
 	}
-	
+
 	log.Printf("Verification email sent to %s with token %s", toEmail, token)
 	return nil
 }

@@ -14,6 +14,16 @@ import (
 	// _ "github.com/lib/pq"
 )
 
+// GetUserNotifications lists notifications for the authenticated user
+//
+//	@Summary	List notifications
+//	@Tags		notifications
+//	@Produce	json
+//	@Security	SessionCookie
+//	@Param		id	path		int				true	"User ID (must match session user)"
+//	@Success	200	{object}	map[string]any	"message + notifications array"
+//	@Failure	401	{object}	map[string]any
+//	@Router		/notifications/{id} [get]
 func GetUserNotifications(c *gin.Context) {
 	db, ok := c.MustGet("db").(*sql.DB)
 
@@ -65,6 +75,19 @@ func GetUserNotifications(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Notifications retrieved successfully", "notifications": notifications})
 }
 
+// MarkNotificationsRead marks notifications as read
+//
+//	@Summary	Mark notifications read
+//	@Tags		notifications
+//	@Accept		json
+//	@Produce	json
+//	@Security	SessionCookie
+//	@Param		id		path		int							true	"User ID (must match session user)"
+//	@Param		request	body		models.NotificationInput	true	"IDs to mark read (empty = all)"
+//	@Success	200		{object}	map[string]any
+//	@Failure	400		{object}	map[string]any
+//	@Failure	404		{object}	map[string]any	"No matching notifications"
+//	@Router		/notifications/read/{id} [patch]
 func MarkNotificationsRead(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB)
 

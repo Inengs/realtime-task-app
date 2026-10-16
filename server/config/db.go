@@ -43,21 +43,21 @@ func getEnv(key, defaultValue string) string {
 // ConnectDB establishes a connection to the PostgreSQL database
 func ConnectDB() (*sql.DB, error) {
 	config := GetDBConfig()
-	
+
 	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
 		config.Host, config.Port, config.User, config.Password, config.DBName, config.SSLMode)
-	
+
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Test the connection
 	err = db.Ping()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	log.Println("Successfully connected to the database")
 	return db, nil
 }

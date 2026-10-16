@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
-import axios from "axios";
+import api from "../services/api"
 
 const NotificationContext = createContext();
 
@@ -16,7 +16,7 @@ export function NotificationProvider({ user, children }) {
         if (!user?.user_id) return;
         try {
             const res = await api.get(`/notifications/${user.user_id}`);
-            setNotifications(res.data.notifications);
+            setNotifications(res.data.notifications || []);
             setUnreadCount(res.data.notifications.filter((n) => !n.isRead).length);
         } catch (err) {
             console.error("Error fetching notifications", err);

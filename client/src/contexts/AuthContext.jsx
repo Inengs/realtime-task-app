@@ -20,7 +20,8 @@ export function AuthProvider({ children }) {
 
   // Login function (call backend)
   const login = async (credentials) => {
-    const res = await api.post("/auth/login", credentials);
+    await api.post("/auth/login", credentials);
+    const res = await api.get("/auth/me");
     setUser(res.data.user);
   };
 

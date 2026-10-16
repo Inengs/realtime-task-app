@@ -42,10 +42,10 @@ func main() {
 	}
 	defer database.Close()
 
-	// Initialize database schema
-	if err := db.InitDB(database); err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
-	}
+    // Run database migrations
+    if err := db.RunMigrations(database); err != nil {
+        log.Fatalf("Failed to run migrations: %v", err)
+    }
 
 	// Set up Gin router
 	router := gin.Default()

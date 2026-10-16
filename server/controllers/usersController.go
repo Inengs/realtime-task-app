@@ -9,6 +9,16 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// UserListFunc lists all users
+//
+//	@Summary	List users
+//	@Tags		users
+//	@Produce	json
+//	@Security	SessionCookie
+//	@Success	200	{object}	map[string]any	"message + users array"
+//	@Failure	401	{object}	map[string]any
+//	@Router		/users [get]
+
 // userListFunc handles GET /users to return a list of all users
 func UserListFunc(c *gin.Context) {
 	// Get database connection from context
@@ -45,6 +55,17 @@ func UserListFunc(c *gin.Context) {
 	// Return 200 with list of users
 	c.JSON(http.StatusOK, gin.H{"message": "Users retrieved successfully", "users": users})
 }
+
+// UserDetailsFunc fetches one user by ID
+//
+//	@Summary	User details
+//	@Tags		users
+//	@Produce	json
+//	@Security	SessionCookie
+//	@Param		id	path		int	true	"User ID"
+//	@Success	200	{object}	map[string]any
+//	@Failure	404	{object}	map[string]any
+//	@Router		/users/{id} [get]
 
 // userDetailsFunc handles GET /users/:id to return details of a specific user
 func UserDetailsFunc(c *gin.Context) {

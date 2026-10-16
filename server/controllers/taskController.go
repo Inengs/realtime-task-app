@@ -11,6 +11,15 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+// TaskListFunc lists the authenticated user's tasks
+//
+//	@Summary	List tasks
+//	@Tags		tasks
+//	@Produce	json
+//	@Security	SessionCookie
+//	@Success	200	{object}	map[string]any	"message + tasks array"
+//	@Failure	401	{object}	map[string]any
+//	@Router		/tasks [get]
 func TaskListFunc(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB) // Setup database connection
 
@@ -50,6 +59,16 @@ func TaskListFunc(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Tasks retrieved successfully", "tasks": tasks})
 }
 
+// TaskDetailsFunc fetches one task by ID
+//
+//	@Summary	Task details
+//	@Tags		tasks
+//	@Produce	json
+//	@Security	SessionCookie
+//	@Param		id	path		int	true	"Task ID"
+//	@Success	200	{object}	map[string]any
+//	@Failure	404	{object}	map[string]any
+//	@Router		/tasks/{id} [get]
 func TaskDetailsFunc(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB) // Setup database connection
 
@@ -86,6 +105,17 @@ func TaskDetailsFunc(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Task retrieved successfully", "task": task})
 }
 
+// CreateNewTask creates a task
+//
+//	@Summary	Create task
+//	@Tags		tasks
+//	@Accept		json
+//	@Produce	json
+//	@Security	SessionCookie
+//	@Param		request	body		models.TaskInput	true	"Task"
+//	@Success	201		{object}	map[string]any
+//	@Failure	400		{object}	map[string]any
+//	@Router		/tasks [post]
 func CreateNewTask(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB) // Setup database connection
 
@@ -137,6 +167,18 @@ func CreateNewTask(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Task created successfully", "task": task})
 }
 
+// UpdateTask updates a task
+//
+//	@Summary	Update task
+//	@Tags		tasks
+//	@Accept		json
+//	@Produce	json
+//	@Security	SessionCookie
+//	@Param		id		path		int					true	"Task ID"
+//	@Param		request	body		models.TaskInput	true	"Task"
+//	@Success	200		{object}	map[string]any
+//	@Failure	404		{object}	map[string]any
+//	@Router		/tasks/{id} [put]
 func UpdateTask(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB) // Setup database connection
 
@@ -199,6 +241,16 @@ func UpdateTask(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Task updated successfully", "task": task})
 }
 
+// DeleteTask deletes a task
+//
+//	@Summary	Delete task
+//	@Tags		tasks
+//	@Produce	json
+//	@Security	SessionCookie
+//	@Param		id	path		int	true	"Task ID"
+//	@Success	200	{object}	map[string]any
+//	@Failure	404	{object}	map[string]any
+//	@Router		/tasks/{id} [delete]
 func DeleteTask(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB)
 
@@ -260,6 +312,17 @@ func DeleteTask(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Task deleted successfully"})
 }
 
+// UpdateTaskStatus changes only the status of a task
+//
+//	@Summary	Update task status
+//	@Tags		tasks
+//	@Accept		json
+//	@Produce	json
+//	@Security	SessionCookie
+//	@Param		id		path		int					true	"Task ID"
+//	@Param		request	body		models.StatusInput	true	"Status"
+//	@Success	200		{object}	map[string]any
+//	@Router		/tasks/{id}/status [patch]
 func UpdateTaskStatus(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB) // Setup database connection
 

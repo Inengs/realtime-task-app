@@ -11,6 +11,15 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+// ListProjects lists the authenticated user's projects
+//
+//	@Summary	List projects
+//	@Tags		projects
+//	@Produce	json
+//	@Security	SessionCookie
+//	@Success	200	{object}	map[string]any	"message + projects array"
+//	@Failure	401	{object}	map[string]any
+//	@Router		/projects [get]
 func ListProjects(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB)
 
@@ -46,6 +55,16 @@ func ListProjects(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Projects retrieved successfully", "projects": projects})
 }
 
+// ProjectDetails fetches one project by ID
+//
+//	@Summary	Project details
+//	@Tags		projects
+//	@Produce	json
+//	@Security	SessionCookie
+//	@Param		id	path		int	true	"Project ID"
+//	@Success	200	{object}	map[string]any
+//	@Failure	404	{object}	map[string]any
+//	@Router		/projects/{id} [get]
 func ProjectDetails(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB)
 	projectIDParam := c.Param("id")
@@ -80,6 +99,17 @@ func ProjectDetails(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Project retrieved successfully", "project": project})
 }
 
+// CreateProject creates a project
+//
+//	@Summary	Create project
+//	@Tags		projects
+//	@Accept		json
+//	@Produce	json
+//	@Security	SessionCookie
+//	@Param		request	body		models.ProjectInput	true	"Project"
+//	@Success	201		{object}	map[string]any
+//	@Failure	400		{object}	map[string]any
+//	@Router		/projects [post]
 func CreateProject(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB)
 
@@ -127,6 +157,18 @@ func CreateProject(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Project created successfully", "project": project})
 }
 
+// UpdateProject updates a project
+//
+//	@Summary	Update project
+//	@Tags		projects
+//	@Accept		json
+//	@Produce	json
+//	@Security	SessionCookie
+//	@Param		id		path		int					true	"Project ID"
+//	@Param		request	body		models.ProjectInput	true	"Project"
+//	@Success	200		{object}	map[string]any
+//	@Failure	404		{object}	map[string]any
+//	@Router		/projects/{id} [put]
 func UpdateProject(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB)
 
@@ -185,6 +227,16 @@ func UpdateProject(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Project updated successfully", "project": project})
 }
 
+// DeleteProject deletes a project and its tasks
+//
+//	@Summary	Delete project
+//	@Tags		projects
+//	@Produce	json
+//	@Security	SessionCookie
+//	@Param		id	path		int	true	"Project ID"
+//	@Success	200	{object}	map[string]any
+//	@Failure	404	{object}	map[string]any
+//	@Router		/projects/{id} [delete]
 func DeleteProject(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB)
 

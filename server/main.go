@@ -1,3 +1,14 @@
+//	@title						TaskFlow API
+//	@version					1.0
+//	@description				Real-time task management API. Session-cookie authenticated.
+//	@host						taskflow-api.inengiyeemmanuel.site
+//	@BasePath					/
+//
+// @ schemes        https
+//
+//	@securityDefinitions.apikey	SessionCookie
+//	@in							cookie
+//	@name						auth-session
 package main
 
 import (
@@ -42,10 +53,10 @@ func main() {
 	}
 	defer database.Close()
 
-    // Run database migrations
-    if err := db.RunMigrations(database); err != nil {
-        log.Fatalf("Failed to run migrations: %v", err)
-    }
+	// Run database migrations
+	if err := db.RunMigrations(database); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
 
 	// Set up Gin router
 	router := gin.Default()

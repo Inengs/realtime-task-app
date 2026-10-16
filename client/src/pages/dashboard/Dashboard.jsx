@@ -46,7 +46,7 @@ export default function DashboardPage() {
 
   const fetchNotifications = async () => {
     try {
-      const res = await api.get("/notifications?unread=true");
+      const res = await api.get(`/notifications/${user?.user_id}`);  // ← changed
       setNotifications(res.data.notifications);
     } catch (err) {
       console.error("Failed to fetch notifications:", err);
@@ -61,9 +61,11 @@ export default function DashboardPage() {
     fetchTasks();
     fetchNotifications();
 
-    const projectSocket = new WebSocket("ws://localhost:8080/ws/projects");
-    const taskSocket = new WebSocket("ws://localhost:8080/ws/tasks");
-    const notifSocket = new WebSocket("ws://localhost:8080/ws/notifications");
+    const WS_URL = import.meta.env.VITE_WS_URL || "wss://taskflow-api.inengiyeemmanuel.site";  // ← add this line
+
+    const projectSocket = new WebSocket(`${WS_URL}/ws/projects`);        // ← changed
+    const taskSocket = new WebSocket(`${WS_URL}/ws/tasks`);              // ← changed
+    const notifSocket = new WebSocket(`${WS_URL}/ws/notifications`);     // ← changed
 
     projectSocket.onmessage = (e) => {
       const msg = JSON.parse(e.data);

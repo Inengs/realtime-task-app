@@ -18,12 +18,15 @@ import (
 
 	"github.com/Inengs/realtime-task-app/config"
 	"github.com/Inengs/realtime-task-app/db"
+	_ "github.com/Inengs/realtime-task-app/docs"
 	"github.com/Inengs/realtime-task-app/middleware"
 	"github.com/Inengs/realtime-task-app/routes"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/sessions"
 	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/lib/pq"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func validateEnv() {
@@ -79,6 +82,9 @@ func main() {
 	if middleware.Store == nil {
 		log.Fatalf("Failed to initialize session store")
 	}
+
+	// Serve Swagger docs — publicly accessible
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// Register routes
 	routes.RegisterAuthRoutes(router)

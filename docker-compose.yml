@@ -38,8 +38,8 @@ services:
     build:
       context: ./client
       args:
-        VITE_API_URL: http://localhost:8080
-        VITE_WS_URL: ws://localhost:8080
+        VITE_API_URL: https://taskflow-api.inengiyeemmanuel.site
+        VITE_WS_URL: wss://taskflow-api.inengiyeemmanuel.site
     ports:
       - "3000:80"
     depends_on:

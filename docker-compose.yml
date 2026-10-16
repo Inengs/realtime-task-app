@@ -28,6 +28,11 @@ services:
       APP_BASE_URL: http://localhost:3000
       APP_ENV: development
       PORT: 8080
+      EMAIL_FROM: ${EMAIL_FROM}
+      EMAIL_USERNAME: ${EMAIL_USERNAME}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD}
+      EMAIL_SMTP_HOST: ${EMAIL_SMTP_HOST}
+      EMAIL_SMTP_PORT: ${EMAIL_SMTP_PORT}
     ports:
       - "8080:8080"
     depends_on:

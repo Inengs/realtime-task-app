@@ -1,0 +1,33 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.example.tfvars
+crash.log
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Build artifacts
+.next/
+dist/
+build/
+
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# macOS
+.DS_Store
+
+# Debug
+debug.txt
+
+# Environment files
+.env
+.env.*
+!.env.example

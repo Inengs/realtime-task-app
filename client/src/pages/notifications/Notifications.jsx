@@ -1,58 +1,163 @@
+// Notifications.jsx
 import { useNotifications } from "../../contexts/NotificationContext";
-import Button from "../../components/Common/Button";
 import Header from "../../components/Header";
 import { useAuth } from "../../contexts/AuthContext";
+
+const timeAgo = (iso) => {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  return `${d}d ago`;
+};
+
+const iconFor = (type = "") => {
+  if (type.includes("task")) {
+    return (
+      <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M5 12l5 5L20 7" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (type.includes("project")) {
+    return (
+      <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M3 7h18M3 12h18M3 17h12" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+};
 
 export default function NotificationsPage() {
   const { notifications, markAsRead } = useNotifications();
   const { user } = useAuth();
 
-  if (!notifications.length) {
-    return (
-      <div className="min-h-screen bg-gray-100 pt-20">
-        <Header
-          unreadCount={0}
-          onSearchChange={() => {}}
-          user={user}
-          searchQuery=""
-        />
-        <div className="max-w-2xl mx-auto mt-10 p-4">
-          <h2 className="text-2xl font-bold mb-4">Notifications</h2>
-          <p className="text-gray-500">No notifications yet.</p>
-        </div>
-      </div>
-    );
-  }
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   return (
-    <div className="min-h-screen bg-gray-100 pt-20">
+    <div className="min-h-screen bg-gray-50">
       <Header
-        unreadCount={notifications.filter((n) => !n.isRead).length}
+        unreadCount={unreadCount}
         onSearchChange={() => {}}
         user={user}
         searchQuery=""
       />
-      <div className="max-w-2xl mx-auto mt-10 p-4">
-        <h2 className="text-2xl font-bold mb-4">Notifications</h2>
 
-        <Button text="Mark All as Read" onClick={() => markAsRead([])} />
-
-        <ul className="mt-4 space-y-3">
-          {notifications.map((n) => (
-            <li
-              key={n.id}
-              className={`p-3 border rounded-lg shadow-sm ${
-                n.isRead ? "bg-gray-100" : "bg-blue-50"
-              }`}
+      <main className="pt-24 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+        {/* Header row */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+              Notifications
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">
+              {notifications.length === 0
+                ? "You're all caught up."
+                : `${unreadCount} unread of ${notifications.length} total`}
+            </p>
+          </div>
+          {notifications.length > 0 && (
+            <button
+              onClick={() => markAsRead([])}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-emerald-200 text-emerald-700 font-semibold text-sm hover:bg-emerald-50 transition shadow-sm"
             >
-              <p className="text-sm">{n.message}</p>
-              <span className="text-xs text-gray-500">
-                {new Date(n.createdAt).toLocaleString()}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
+              <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M5 12l5 5L20 7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Mark All as Read
+            </button>
+          )}
+        </div>
+
+        {/* Filter tabs (visual) */}
+        {notifications.length > 0 && (
+          <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
+            {["All", "Unread", "Tasks", "Projects", "Mentions"].map((tab, i) => (
+              <button
+                key={tab}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition ${
+                  i === 0
+                    ? "bg-emerald-600 text-white shadow-sm"
+                    : "bg-white border border-gray-200 text-gray-600 hover:border-emerald-300 hover:text-emerald-700"
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* List */}
+        {notifications.length === 0 ? (
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-12 text-center">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-50 flex items-center justify-center mb-4">
+              <svg viewBox="0 0 24 24" className="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <h3 className="font-bold text-gray-800 text-lg">No notifications yet</h3>
+            <p className="text-sm text-gray-500 mt-1">
+              When something happens, you'll see it here.
+            </p>
+          </div>
+        ) : (
+          <ul className="space-y-2.5">
+            {notifications.map((n) => (
+              <li
+                key={n.id}
+                className={`flex items-start gap-3 p-4 rounded-2xl border transition cursor-pointer ${
+                  n.isRead
+                    ? "bg-white border-gray-100 hover:border-emerald-200"
+                    : "bg-emerald-50/50 border-emerald-100 hover:bg-emerald-50"
+                }`}
+              >
+                <div
+                  className={`flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${
+                    n.isRead
+                      ? "bg-gray-100 text-gray-500"
+                      : "bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm"
+                  }`}
+                >
+                  {iconFor(n.type)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p
+                    className={`text-sm ${
+                      n.isRead ? "text-gray-700" : "text-gray-900 font-semibold"
+                    }`}
+                  >
+                    {n.message}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-gray-400">
+                      {timeAgo(n.createdAt)}
+                    </span>
+                    {!n.isRead && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    )}
+                  </div>
+                </div>
+                {!n.isRead && (
+                  <button
+                    onClick={() => markAsRead([n.id])}
+                    className="text-xs text-emerald-600 hover:text-emerald-700 font-medium"
+                  >
+                    Mark read
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </main>
     </div>
   );
 }

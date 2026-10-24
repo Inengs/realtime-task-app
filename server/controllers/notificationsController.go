@@ -11,29 +11,17 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/lib/pq"
-	// _ "github.com/lib/pq"
 )
 
 // GetUserNotifications lists notifications for the authenticated user
-//
-//	@Summary	List notifications
-//	@Tags		notifications
-//	@Produce	json
-//	@Security	SessionCookie
-//	@Param		id	path		int				true	"User ID (must match session user)"
-//	@Success	200	{object}	map[string]any	"message + notifications array"
-//	@Failure	401	{object}	map[string]any
-//	@Router		/notifications/{id} [get]
 func GetUserNotifications(c *gin.Context) {
 	db, ok := c.MustGet("db").(*sql.DB)
-
 	if !ok {
 		log.Printf("Failed to get database from context")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection error"})
 		return
 	}
 
-	// Extract  and validate user ID from URL parameter
 	userIDStr := c.Param("id")
 	userID, err := strconv.Atoi(userIDStr)
 	if err != nil {
@@ -42,8 +30,14 @@ func GetUserNotifications(c *gin.Context) {
 		return
 	}
 
-	// Query notifications for the user
-	rows, err := db.Query("SELECT ID, UserID, Message, IsRead, CreatedAt, UpdatedAt FROM notifications WHERE UserID = $1 ORDER BY CreatedAt DESC", userID)
+	// ✅ Use snake_case column names to match the DB schema
+	rows, err := db.Query(
+		`SELECT id, user_id, message, is_read, created_at, updated_at
+		 FROM notifications
+		 WHERE user_id = $1
+		 ORDER BY created_at DESC`,
+		userID,
+	)
 	if err != nil {
 		log.Printf("Database query error for user_id %d: %v", userID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
@@ -51,11 +45,17 @@ func GetUserNotifications(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	// collect notifications into a slice
 	var notifications []models.Notifications
 	for rows.Next() {
 		var notification models.Notifications
-		if err := rows.Scan(&notification.ID, &notification.UserID, &notification.Message, &notification.IsRead, &notification.CreatedAt, &notification.UpdatedAt); err != nil {
+		if err := rows.Scan(
+			&notification.ID,
+			&notification.UserID,
+			&notification.Message,
+			&notification.IsRead,
+			&notification.CreatedAt,
+			&notification.UpdatedAt,
+		); err != nil {
 			log.Printf("Error scanning notification for user_id %d: %v", userID, err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 			return
@@ -63,35 +63,23 @@ func GetUserNotifications(c *gin.Context) {
 		notifications = append(notifications, notification)
 	}
 
-	// Check for iteration errors
 	if err := rows.Err(); err != nil {
 		log.Printf("Row iteration error for user_id %d: %v", userID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 
-	// Return notifications
 	log.Printf("Retrieved %d notifications for user_id %d", len(notifications), userID)
-	c.JSON(http.StatusOK, gin.H{"message": "Notifications retrieved successfully", "notifications": notifications})
+	c.JSON(http.StatusOK, gin.H{
+		"message":       "Notifications retrieved successfully",
+		"notifications": notifications,
+	})
 }
 
 // MarkNotificationsRead marks notifications as read
-//
-//	@Summary	Mark notifications read
-//	@Tags		notifications
-//	@Accept		json
-//	@Produce	json
-//	@Security	SessionCookie
-//	@Param		id		path		int							true	"User ID (must match session user)"
-//	@Param		request	body		models.NotificationInput	true	"IDs to mark read (empty = all)"
-//	@Success	200		{object}	map[string]any
-//	@Failure	400		{object}	map[string]any
-//	@Failure	404		{object}	map[string]any	"No matching notifications"
-//	@Router		/notifications/read/{id} [patch]
 func MarkNotificationsRead(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB)
 
-	// Extract and validate user ID from URL parameter
 	userIDStr := c.Param("id")
 	userID, err := strconv.Atoi(userIDStr)
 	if err != nil {
@@ -99,14 +87,12 @@ func MarkNotificationsRead(c *gin.Context) {
 		return
 	}
 
-	// Bind and validate request body
 	var input models.NotificationInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	// Validate input using validator
 	validate := validator.New()
 	if err := validate.Struct(input); err != nil {
 		var errs []string
@@ -117,19 +103,26 @@ func MarkNotificationsRead(c *gin.Context) {
 		return
 	}
 
-	// Update notifications in database
+	// ✅ Use snake_case column names
 	var result sql.Result
 	if len(input.NotificationIDs) > 0 {
-		result, err = db.Exec("UPDATE notifications SET isRead = true WHERE UserID = $1 AND ID = ANY($2)", userID, pq.Array(input.NotificationIDs))
+		result, err = db.Exec(
+			`UPDATE notifications SET is_read = true
+			 WHERE user_id = $1 AND id = ANY($2)`,
+			userID, pq.Array(input.NotificationIDs),
+		)
 	} else {
-		result, err = db.Exec("UPDATE notifications SET isRead = true WHERE UserID = $1", userID)
+		result, err = db.Exec(
+			`UPDATE notifications SET is_read = true WHERE user_id = $1`,
+			userID,
+		)
 	}
 	if err != nil {
+		log.Printf("Failed to mark notifications read for user_id %d: %v", userID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 
-	// Check if any notifications were updated
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
@@ -140,17 +133,26 @@ func MarkNotificationsRead(c *gin.Context) {
 		return
 	}
 
-	// Return success response
 	c.JSON(http.StatusOK, gin.H{"message": "Notifications marked as read"})
 }
 
 // SendNotification inserts a notification and broadcasts it
 func SendNotification(db *sql.DB, userID int, message string) error {
 	var notification models.Notifications
+	// ✅ SendNotification was already using snake_case — kept as-is, just cleaned up
 	err := db.QueryRow(
-		"INSERT INTO notifications (user_id, message, is_read) VALUES ($1, $2, false) RETURNING id, user_id, message, is_read, created_at, updated_at",
+		`INSERT INTO notifications (user_id, message, is_read)
+		 VALUES ($1, $2, false)
+		 RETURNING id, user_id, message, is_read, created_at, updated_at`,
 		userID, message,
-	).Scan(&notification.ID, &notification.UserID, &notification.Message, &notification.IsRead, &notification.CreatedAt, &notification.UpdatedAt)
+	).Scan(
+		&notification.ID,
+		&notification.UserID,
+		&notification.Message,
+		&notification.IsRead,
+		&notification.CreatedAt,
+		&notification.UpdatedAt,
+	)
 	if err != nil {
 		return err
 	}

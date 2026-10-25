@@ -1,10 +1,24 @@
 // Notifications.jsx
+import { useState } from "react";
 import { useNotifications } from "../../contexts/NotificationContext";
 import Header from "../../components/Header";
 import { useAuth } from "../../contexts/AuthContext";
 
+// API fields are snake_case (is_read, created_at); camelCase kept as a fallback
+const isRead = (n) => Boolean(n.is_read ?? n.isRead);
+const createdAt = (n) => n.created_at ?? n.createdAt;
+
+const TABS = [
+  { key: "all", label: "All" },
+  { key: "unread", label: "Unread" },
+  { key: "task", label: "Tasks" },
+  { key: "project", label: "Projects" },
+];
+
 const timeAgo = (iso) => {
-  const diff = Date.now() - new Date(iso).getTime();
+  const t = new Date(iso).getTime();
+  if (!iso || isNaN(t)) return "";
+  const diff = Date.now() - t;
   const m = Math.floor(diff / 60000);
   if (m < 1) return "just now";
   if (m < 60) return `${m}m ago`;
@@ -40,7 +54,15 @@ export default function NotificationsPage() {
   const { notifications, markAsRead } = useNotifications();
   const { user } = useAuth();
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const [tab, setTab] = useState("all");
+
+  const unreadCount = notifications.filter((n) => !isRead(n)).length;
+
+  const visible = notifications.filter((n) => {
+    if (tab === "unread") return !isRead(n);
+    if (tab === "task" || tab === "project") return (n.type ?? "").includes(tab);
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -77,19 +99,20 @@ export default function NotificationsPage() {
           )}
         </div>
 
-        {/* Filter tabs (visual) */}
+        {/* Filter tabs */}
         {notifications.length > 0 && (
           <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
-            {["All", "Unread", "Tasks", "Projects", "Mentions"].map((tab, i) => (
+            {TABS.map(({ key, label }) => (
               <button
-                key={tab}
+                key={key}
+                onClick={() => setTab(key)}
                 className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition ${
-                  i === 0
+                  tab === key
                     ? "bg-emerald-600 text-white shadow-sm"
                     : "bg-white border border-gray-200 text-gray-600 hover:border-emerald-300 hover:text-emerald-700"
                 }`}
               >
-                {tab}
+                {label}
               </button>
             ))}
           </div>
@@ -108,20 +131,24 @@ export default function NotificationsPage() {
               When something happens, you'll see it here.
             </p>
           </div>
+        ) : visible.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-10">
+            Nothing in this view.
+          </p>
         ) : (
           <ul className="space-y-2.5">
-            {notifications.map((n) => (
+            {visible.map((n) => (
               <li
                 key={n.id}
                 className={`flex items-start gap-3 p-4 rounded-2xl border transition cursor-pointer ${
-                  n.isRead
+                  isRead(n)
                     ? "bg-white border-gray-100 hover:border-emerald-200"
                     : "bg-emerald-50/50 border-emerald-100 hover:bg-emerald-50"
                 }`}
               >
                 <div
                   className={`flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${
-                    n.isRead
+                    isRead(n)
                       ? "bg-gray-100 text-gray-500"
                       : "bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm"
                   }`}
@@ -131,21 +158,21 @@ export default function NotificationsPage() {
                 <div className="flex-1 min-w-0">
                   <p
                     className={`text-sm ${
-                      n.isRead ? "text-gray-700" : "text-gray-900 font-semibold"
+                      isRead(n) ? "text-gray-700" : "text-gray-900 font-semibold"
                     }`}
                   >
                     {n.message}
                   </p>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-xs text-gray-400">
-                      {timeAgo(n.createdAt)}
+                      {timeAgo(createdAt(n))}
                     </span>
-                    {!n.isRead && (
+                    {!isRead(n) && (
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     )}
                   </div>
                 </div>
-                {!n.isRead && (
+                {!isRead(n) && (
                   <button
                     onClick={() => markAsRead([n.id])}
                     className="text-xs text-emerald-600 hover:text-emerald-700 font-medium"

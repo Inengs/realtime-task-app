@@ -1,10 +1,16 @@
 // TaskForm.jsx (TaskPage)
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Header from "../../components/Header";
 import NewTaskModal from "../../components/NewTaskModal";
 import UpcomingTasks from "../../components/UpcomingTasks";
 import api from "../../services/api";
 import { useAuth } from "../../contexts/AuthContext";
+
+const toArray = (data, key) =>
+  Array.isArray(data) ? data : Array.isArray(data?.[key]) ? data[key] : [];
+
+// API may send is_read (snake_case) or isRead (camelCase)
+const isUnread = (n) => !(n.is_read ?? n.isRead);
 
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -67,30 +73,53 @@ function TaskPage() {
   const { user } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [tasks, setTasks] = useState([]);
-  const [unreadCount] = useState(0);
+  const [notifications, setNotifications] = useState([]);
   const [taskFilter, setTaskFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
 
+  const fetchTasks = async () => {
+    try {
+      const res = await api.get("/tasks/");
+      setTasks(toArray(res.data, "tasks"));
+    } catch (err) {
+      console.error("Failed to fetch tasks:", err);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await api.get(`/notifications/${user.user_id}`);
+      setNotifications(toArray(res.data, "notifications"));
+    } catch (err) {
+      console.error("Failed to fetch notifications:", err);
+    }
+  };
+
   useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        const response = await api.get("/tasks/");
-        setTasks(response.data.tasks || response.data || []);
-      } catch (err) {
-        console.error("Failed to fetch tasks:", err);
-      }
-    };
     fetchTasks();
   }, []);
 
+  useEffect(() => {
+    if (user?.user_id) fetchNotifications();
+  }, [user?.user_id]);
+
   const handleTaskCreated = async () => {
-    const response = await api.get("/tasks/");
-    setTasks(response.data.tasks || response.data || []);
+    await fetchTasks();
     setIsModalOpen(false);
   };
 
+  const filteredTasks = useMemo(
+    () =>
+      tasks
+        .filter((t) => taskFilter === "All" || t.status === taskFilter)
+        .filter((t) =>
+          (t.title ?? "").toLowerCase().includes(searchQuery.toLowerCase())
+        ),
+    [tasks, taskFilter, searchQuery]
+  );
+
   /* derived stats */
-  const completed = tasks.filter((t) => t.status === "Completed").length;
+  const completed = tasks.filter((t) => t.status === "done").length;
   const completionRate = tasks.length ? Math.round((completed / tasks.length) * 100) : 0;
   const today = new Date();
   const dayIdx = (today.getDay() + 6) % 7; // Mon=0
@@ -103,9 +132,9 @@ function TaskPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
-        unreadCount={unreadCount}
+        unreadCount={notifications.filter(isUnread).length}
         onSearchChange={setSearchQuery}
-        user={user || { name: "John Doe" }}
+        user={user}
         searchQuery={searchQuery}
       />
 
@@ -120,7 +149,7 @@ function TaskPage() {
               </p>
               <h1 className="text-3xl font-bold mt-1">Get things done.</h1>
               <p className="text-emerald-50 text-sm mt-1">
-                {tasks.length} tasks · {completed} completed this week
+                {tasks.length} tasks · {completed} completed
               </p>
             </div>
             <button
@@ -142,34 +171,18 @@ function TaskPage() {
               <div className="flex items-center justify-between mb-1">
                 <h3 className="font-bold text-gray-800">Task Statistics</h3>
                 <span className="text-xs text-emerald-600 font-semibold">
-                  Last 7 days
+                  All time
                 </span>
               </div>
               <p className="text-sm text-gray-500">
                 {completed} of {tasks.length} tasks completed — keep it up!
               </p>
 
-              <div className="mt-4 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-600">Top tasks</span>
-                  <span className="text-gray-400">Design · Code · Client feedback</span>
-                </div>
-                <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-500"
-                    style={{ width: `${completionRate}%` }}
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4 flex items-center gap-2">
-                <span className="text-xs text-gray-500">Plan usage</span>
-                <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-emerald-400 to-cyan-400" style={{ width: "60%" }} />
-                </div>
-                <button className="text-xs text-emerald-600 font-semibold hover:underline whitespace-nowrap">
-                  UPGRADE
-                </button>
+              <div className="mt-4 w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-500"
+                  style={{ width: `${completionRate}%` }}
+                />
               </div>
             </div>
           </div>
@@ -201,7 +214,7 @@ function TaskPage() {
         {/* Upcoming tasks list */}
         <div className="mt-6">
           <UpcomingTasks
-            tasks={tasks}
+            tasks={filteredTasks}
             taskFilter={taskFilter}
             setTaskFilter={setTaskFilter}
             searchQuery={searchQuery}

@@ -43,6 +43,24 @@ const StatCard = ({ label, value, sub, accent = "emerald" }) => (
   </div>
 );
 
+const toArray = (data, key) =>
+  Array.isArray(data) ? data : Array.isArray(data?.[key]) ? data[key] : [];
+
+// Status values as stored in the database
+const STATUS_DOT = {
+  done: "bg-emerald-500",
+  "in-progress": "bg-amber-400",
+  pending: "bg-gray-300",
+};
+const STATUS_LABEL = {
+  done: "Done",
+  "in-progress": "In progress",
+  pending: "Pending",
+};
+
+// API may send is_read (snake_case) or isRead (camelCase)
+const isUnread = (n) => !(n.is_read ?? n.isRead);
+
 export default function DashboardPage() {
   const { user, loading } = useAuth();
 
@@ -57,14 +75,14 @@ export default function DashboardPage() {
   const filteredTasks = useMemo(() => {
     return tasks
       .filter((t) => taskFilter === "All" || t.status === taskFilter)
-      .filter((t) => t.title.toLowerCase().includes(searchQuery.toLowerCase()));
+      .filter((t) => (t.title ?? "").toLowerCase().includes(searchQuery.toLowerCase()));
   }, [tasks, taskFilter, searchQuery]);
 
   /* ---------- fetchers ---------- */
   const fetchProjects = async () => {
     try {
       const res = await api.get("/projects/");
-      setProjects(res.data.projects || []);
+      setProjects(toArray(res.data, "projects"));
     } catch (err) {
       console.error("Failed to fetch projects:", err);
     }
@@ -73,7 +91,7 @@ export default function DashboardPage() {
   const fetchTasks = async () => {
     try {
       const res = await api.get("/tasks/");
-      setTasks(res.data.tasks || res.data || []);
+      setTasks(toArray(res.data, "tasks"));
     } catch (err) {
       console.error("Failed to fetch tasks:", err);
     }
@@ -82,7 +100,7 @@ export default function DashboardPage() {
   const fetchNotifications = async () => {
     try {
       const res = await api.get(`/notifications/${user?.user_id}`);
-      setNotifications(res.data.notifications || []);
+      setNotifications(toArray(res.data, "notifications"));
     } catch (err) {
       console.error("Failed to fetch notifications:", err);
     }
@@ -105,7 +123,9 @@ export default function DashboardPage() {
     projectSocket.onmessage = (e) => {
       const msg = JSON.parse(e.data);
       if (msg.type === "project_created")
-        setProjects((prev) => [...prev, msg.data]);
+        setProjects((prev) =>
+          prev.some((p) => p.id === msg.data.id) ? prev : [...prev, msg.data]
+        );
       if (msg.type === "project_updated")
         setProjects((prev) =>
           prev.map((p) => (p.id === msg.data.id ? msg.data : p))
@@ -116,7 +136,10 @@ export default function DashboardPage() {
 
     taskSocket.onmessage = (e) => {
       const msg = JSON.parse(e.data);
-      if (msg.type === "task_created") setTasks((prev) => [...prev, msg.data]);
+      if (msg.type === "task_created")
+        setTasks((prev) =>
+          prev.some((t) => t.id === msg.data.id) ? prev : [...prev, msg.data]
+        );
       if (msg.type === "task_updated")
         setTasks((prev) =>
           prev.map((t) => (t.id === msg.data.id ? msg.data : t))
@@ -132,7 +155,7 @@ export default function DashboardPage() {
       taskSocket.close();
       notifSocket.close();
     };
-  }, [user]);
+  }, [user?.user_id]);
 
   if (loading)
     return (
@@ -145,8 +168,8 @@ export default function DashboardPage() {
   if (!user) return <p className="p-8 text-gray-600">Please log in to view the dashboard.</p>;
 
   /* ---------- derived stats ---------- */
-  const completedTasks = tasks.filter((t) => t.status === "Completed").length;
-  const inProgress = tasks.filter((t) => t.status === "In Progress").length;
+  const completedTasks = tasks.filter((t) => t.status === "done").length;
+  const inProgress = tasks.filter((t) => t.status === "in-progress").length;
   const completionRate = tasks.length
     ? Math.round((completedTasks / tasks.length) * 100)
     : 0;
@@ -156,7 +179,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
-        unreadCount={notifications.length}
+        unreadCount={notifications.filter(isUnread).length}
         onSearchChange={setSearchQuery}
         searchQuery={searchQuery}
         user={user}
@@ -184,7 +207,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-6">
           <StatCard label="Active Projects" value={projects.length} sub="in progress" />
           <StatCard label="Total Tasks" value={tasks.length} sub="all time" accent="teal" />
-          <StatCard label="Completed" value={completedTasks} sub="this week" accent="emerald" />
+          <StatCard label="Completed" value={completedTasks} sub="all time" accent="emerald" />
           <StatCard label="In Progress" value={inProgress} sub="active now" accent="cyan" />
         </div>
 
@@ -230,18 +253,14 @@ export default function DashboardPage() {
                   >
                     <span
                       className={`w-2.5 h-2.5 rounded-full ${
-                        t.status === "Completed"
-                          ? "bg-emerald-500"
-                          : t.status === "In Progress"
-                          ? "bg-amber-400"
-                          : "bg-gray-300"
+                        STATUS_DOT[t.status] || "bg-gray-300"
                       }`}
                     />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-800 truncate">
                         {t.title}
                       </p>
-                      <p className="text-xs text-gray-400">{t.status || "—"}</p>
+                      <p className="text-xs text-gray-400">{STATUS_LABEL[t.status] || t.status || "—"}</p>
                     </div>
                     <span className="text-xs text-gray-400">
                       {t.due_date
@@ -272,7 +291,7 @@ export default function DashboardPage() {
         {/* ----- Progress strip ----- */}
         <div className="mt-6 bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold text-gray-800">Weekly Progress</h3>
+            <h3 className="font-bold text-gray-800">Overall Progress</h3>
             <span className="text-emerald-600 font-bold text-lg">
               {completionRate}%
             </span>
@@ -284,7 +303,7 @@ export default function DashboardPage() {
             />
           </div>
           <p className="text-xs text-gray-500 mt-2">
-            {completedTasks} of {tasks.length} tasks completed this week
+            {completedTasks} of {tasks.length} tasks completed
           </p>
         </div>
 

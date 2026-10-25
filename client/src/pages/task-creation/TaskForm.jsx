@@ -74,7 +74,7 @@ function TaskPage() {
   useEffect(() => {
     const fetchTasks = async () => {
       try {
-        const response = await api.get("/tasks");
+        const response = await api.get("/tasks/");
         setTasks(response.data.tasks || response.data || []);
       } catch (err) {
         console.error("Failed to fetch tasks:", err);
@@ -84,7 +84,7 @@ function TaskPage() {
   }, []);
 
   const handleTaskCreated = async () => {
-    const response = await api.get("/tasks");
+    const response = await api.get("/tasks/");
     setTasks(response.data.tasks || response.data || []);
     setIsModalOpen(false);
   };

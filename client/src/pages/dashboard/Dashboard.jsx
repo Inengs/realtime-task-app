@@ -63,7 +63,7 @@ export default function DashboardPage() {
   /* ---------- fetchers ---------- */
   const fetchProjects = async () => {
     try {
-      const res = await api.get("/projects");
+      const res = await api.get("/projects/");
       setProjects(res.data.projects || []);
     } catch (err) {
       console.error("Failed to fetch projects:", err);
@@ -72,7 +72,7 @@ export default function DashboardPage() {
 
   const fetchTasks = async () => {
     try {
-      const res = await api.get("/tasks");
+      const res = await api.get("/tasks/");
       setTasks(res.data.tasks || res.data || []);
     } catch (err) {
       console.error("Failed to fetch tasks:", err);
@@ -98,9 +98,9 @@ export default function DashboardPage() {
     const WS_URL =
       import.meta.env.VITE_WS_URL || "wss://taskflow-api.inengiyeemmanuel.site";
 
-    const projectSocket = new WebSocket(`${WS_URL}/ws/projects`);
-    const taskSocket = new WebSocket(`${WS_URL}/ws/tasks`);
-    const notifSocket = new WebSocket(`${WS_URL}/ws/notifications`);
+    const projectSocket = new WebSocket(`${WS_URL}/ws/projects/`);
+    const taskSocket = new WebSocket(`${WS_URL}/ws/tasks/`);
+    const notifSocket = new WebSocket(`${WS_URL}/ws/notifications/`);
 
     projectSocket.onmessage = (e) => {
       const msg = JSON.parse(e.data);

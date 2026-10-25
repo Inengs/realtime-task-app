@@ -1,224 +1,288 @@
 // ProjectManagement.jsx
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Header from "../../components/Header";
 import NewProjectModal from "../../components/NewProjectModal";
-import ActiveProjects from "../../components/ActiveProjects";
+import NewTaskModal from "../../components/NewTaskModal";
 import api from "../../services/api";
+import { useAuth } from "../../contexts/AuthContext";
 
-const TeamAvatar = ({ letter, color = "emerald" }) => (
-  <div
-    className={`w-9 h-9 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white shadow-sm -ml-2 first:ml-0 ${
-      color === "emerald"
-        ? "bg-emerald-500"
-        : color === "teal"
-        ? "bg-teal-500"
-        : color === "cyan"
-        ? "bg-cyan-500"
-        : "bg-amber-500"
-    }`}
-  >
-    {letter}
-  </div>
-);
+/* ---------- helpers ---------- */
+const toArray = (data, key) =>
+  Array.isArray(data) ? data : Array.isArray(data?.[key]) ? data[key] : [];
 
-const TimelineBar = ({ label, percent }) => (
-  <div className="space-y-1.5">
-    <div className="flex items-center justify-between text-xs">
-      <span className="font-medium text-gray-700">{label}</span>
-      <span className="text-gray-400">{percent}%</span>
-    </div>
-    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-      <div
-        className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-500"
-        style={{ width: `${percent}%` }}
-      />
-    </div>
-  </div>
-);
+// API may send is_read (snake_case) or isRead (camelCase)
+const isUnread = (n) => !(n.is_read ?? n.isRead);
 
-const ProjectManagementPage = () => {
+// Tolerate different field names until the API shape is confirmed
+const projectId = (p) => p.id ?? p.project_id;
+const projectName = (p) => p.name ?? p.title ?? p.project_name ?? "Untitled project";
+
+const COLUMNS = [
+  { key: "pending", label: "Pending", dot: "bg-gray-300" },
+  { key: "in-progress", label: "In progress", dot: "bg-amber-400" },
+  { key: "done", label: "Done", dot: "bg-emerald-500" },
+];
+
+const formatDue = (d) =>
+  d
+    ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : "";
+
+export default function ProjectManagement() {
+  const { user } = useAuth();
   const [projects, setProjects] = useState([]);
-  const [showModal, setShowModal] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [user, setUser] = useState({ name: "John Doe" });
+  const [tasks, setTasks] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [selectedId, setSelectedId] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
 
-  useEffect(() => {
-    fetchProjects();
-  }, []);
-
-  const fetchProjects = async () => {
+  const load = async () => {
     try {
-      const response = await api.get("/projects/");
-      setProjects(response.data.projects || []);
-    } catch (error) {
-      console.error("Error fetching projects:", error);
+      const [p, t] = await Promise.all([api.get("/projects/"), api.get("/tasks/")]);
+      setProjects(toArray(p.data, "projects"));
+      setTasks(toArray(t.data, "tasks"));
+      setError("");
+    } catch (err) {
+      console.error("Failed to load projects/tasks:", err);
+      setError("Couldn't load your projects. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleProjectCreated = () => {
-    fetchProjects();
-    setShowModal(false);
+  useEffect(() => {
+    load();
+  }, []);
+
+  useEffect(() => {
+    if (!user?.user_id) return;
+    api
+      .get(`/notifications/${user.user_id}`)
+      .then((res) => setNotifications(toArray(res.data, "notifications")))
+      .catch((err) => console.error("Failed to fetch notifications:", err));
+  }, [user?.user_id]);
+
+  /* ---------- derived ---------- */
+  const visibleProjects = useMemo(
+    () =>
+      projects.filter((p) =>
+        projectName(p).toLowerCase().includes(searchQuery.toLowerCase())
+      ),
+    [projects, searchQuery]
+  );
+
+  const tasksOf = (id) => tasks.filter((t) => t.project_id === id);
+  const progressOf = (id) => {
+    const list = tasksOf(id);
+    const done = list.filter((t) => t.status === "done").length;
+    return {
+      total: list.length,
+      done,
+      pct: list.length ? Math.round((done / list.length) * 100) : 0,
+    };
   };
 
-  const filteredProjects = projects.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const selected =
+    projects.find((p) => projectId(p) === selectedId) ?? visibleProjects[0] ?? null;
+  const selectedTasks = selected ? tasksOf(projectId(selected)) : [];
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
-        unreadCount={unreadCount}
+        unreadCount={notifications.filter(isUnread).length}
         onSearchChange={setSearchQuery}
-        user={user}
         searchQuery={searchQuery}
+        user={user}
       />
 
-      <main className="pt-24 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-        {/* Hero header */}
-        <div className="bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 rounded-3xl p-6 text-white relative overflow-hidden">
-          <div className="absolute -right-12 -top-12 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
-          <div className="relative">
-            <p className="text-emerald-50 text-xs uppercase tracking-widest font-semibold">
-              Overview
-            </p>
-            <h1 className="text-3xl font-bold mt-1">Project Management</h1>
-            <p className="text-emerald-50 text-sm mt-1">
-              Track timelines, manage tasks, and collaborate with your team.
+      <main className="pt-24 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+              Projects
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">
+              {projects.length} {projects.length === 1 ? "project" : "projects"} ·{" "}
+              {tasks.length} {tasks.length === 1 ? "task" : "tasks"}
             </p>
           </div>
-        </div>
-
-        {/* Project grid */}
-        <div className="grid lg:grid-cols-3 gap-4 mt-6">
-          {/* Timeline card */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-800">Project Timeline</h3>
-              <span className="text-xs text-emerald-600 font-semibold">This week</span>
-            </div>
-            <div className="space-y-4">
-              <TimelineBar label="App Redesign" percent={78} />
-              <TimelineBar label="Web Update" percent={45} />
-              <TimelineBar label="Dashboard" percent={20} />
-              <TimelineBar label="API Polish" percent={92} />
-            </div>
-          </div>
-
-          {/* Current tasks */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-800">Current Tasks</h3>
-              <span className="text-xs text-gray-400">4 active</span>
-            </div>
-            <ul className="space-y-2.5">
-              {[
-                { name: "Design Mockups", status: "In Progress", color: "amber" },
-                { name: "Login Screen", status: "Completed", color: "emerald" },
-                { name: "Testing Phase", status: "Not Started", color: "gray" },
-                { name: "API Integration", status: "In Progress", color: "amber" },
-              ].map((t) => (
-                <li
-                  key={t.name}
-                  className="flex items-center justify-between p-2.5 rounded-xl hover:bg-gray-50 transition cursor-pointer"
-                >
-                  <span className="text-sm font-medium text-gray-700">{t.name}</span>
-                  <span
-                    className={`text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded-full ${
-                      t.color === "amber"
-                        ? "bg-amber-100 text-amber-700"
-                        : t.color === "emerald"
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-gray-100 text-gray-500"
-                    }`}
-                  >
-                    {t.status}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Team members */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-800">Team Members</h3>
-              <button className="text-xs text-emerald-600 font-semibold hover:underline">
-                + Invite
-              </button>
-            </div>
-            <ul className="space-y-3">
-              {[
-                { name: "Alex Johnson", role: "Project Manager", letter: "A", color: "emerald" },
-                { name: "Bea Lin", role: "Designer", letter: "B", color: "teal" },
-                { name: "Carlos Reyes", role: "Engineer", letter: "C", color: "cyan" },
-              ].map((m) => (
-                <li key={m.name} className="flex items-center gap-3">
-                  <TeamAvatar letter={m.letter} color={m.color} />
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">{m.name}</p>
-                    <p className="text-xs text-gray-400">{m.role}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        {/* Action row */}
-        <div className="flex flex-wrap gap-3 mt-6">
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => setShowProjectModal(true)}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-600 text-white font-semibold text-sm hover:bg-emerald-700 transition shadow-md shadow-emerald-200"
           >
-            <span className="text-lg leading-none">+</span> Edit Project Details
-          </button>
-          <button className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white border border-emerald-200 text-emerald-700 font-semibold text-sm hover:bg-emerald-50 transition shadow-sm">
-            Export
+            <span className="text-lg leading-none">+</span> New Project
           </button>
         </div>
 
-        {/* Active projects list */}
-        <div className="mt-6">
-          <ActiveProjects projects={filteredProjects} />
-        </div>
-
-        {/* Edit panel */}
-        <div className="mt-6 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h3 className="font-bold text-gray-800 mb-4">Quick Edit</h3>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <input
-              type="text"
-              placeholder="Project name"
-              className="px-3.5 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 focus:outline-none text-sm"
-            />
-            <input
-              type="text"
-              placeholder="Owner"
-              className="px-3.5 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 focus:outline-none text-sm"
-            />
-            <textarea
-              placeholder="Project description"
-              className="sm:col-span-2 px-3.5 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 focus:outline-none text-sm resize-none"
-              rows={3}
-            />
-          </div>
-          <div className="flex gap-2 mt-4">
-            <button className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition">
-              Save Changes
-            </button>
-            <button className="px-4 py-2 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition">
-              Cancel
+        {error && (
+          <div className="mt-6 flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <span>{error}</span>
+            <button onClick={load} className="font-semibold underline">
+              Retry
             </button>
           </div>
-        </div>
+        )}
 
-        {showModal && (
-          <NewProjectModal onClose={() => setShowModal(false)} onCreated={handleProjectCreated} />
+        {loading ? (
+          <p className="mt-10 text-center text-sm text-emerald-600 animate-pulse">
+            Loading projects…
+          </p>
+        ) : projects.length === 0 && !error ? (
+          <div className="mt-8 bg-white rounded-2xl border border-dashed border-gray-300 p-10 text-center">
+            <p className="text-lg font-semibold text-gray-800">No projects yet</p>
+            <p className="text-sm text-gray-500 mt-1">
+              Create your first project to start organising tasks.
+            </p>
+            <button
+              onClick={() => setShowProjectModal(true)}
+              className="mt-4 px-5 py-2.5 rounded-full bg-emerald-600 text-white font-semibold text-sm hover:bg-emerald-700 transition"
+            >
+              Create a project
+            </button>
+          </div>
+        ) : (
+          <div className="grid lg:grid-cols-3 gap-6 mt-6">
+            {/* ---- project list ---- */}
+            <section className="lg:col-span-1 space-y-3">
+              {visibleProjects.length === 0 && (
+                <p className="text-sm text-gray-400 py-6 text-center">
+                  No projects match “{searchQuery}”.
+                </p>
+              )}
+              {visibleProjects.map((p) => {
+                const id = projectId(p);
+                const { total, done, pct } = progressOf(id);
+                const active = selected && projectId(selected) === id;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => setSelectedId(id)}
+                    className={`w-full text-left bg-white rounded-2xl p-4 border transition shadow-sm ${
+                      active
+                        ? "border-emerald-400 ring-2 ring-emerald-100"
+                        : "border-gray-100 hover:border-emerald-200"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-semibold text-gray-800 truncate">
+                        {projectName(p)}
+                      </p>
+                      <span className="text-xs font-semibold text-emerald-600">
+                        {pct}%
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mt-3">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">
+                      {done} of {total} tasks done
+                    </p>
+                  </button>
+                );
+              })}
+            </section>
+
+            {/* ---- selected project ---- */}
+            <section className="lg:col-span-2">
+              {selected ? (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <h2 className="text-xl font-bold text-gray-900 truncate">
+                        {projectName(selected)}
+                      </h2>
+                      {selected.description && (
+                        <p className="text-sm text-gray-500 mt-1">
+                          {selected.description}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setShowTaskModal(true)}
+                      className="shrink-0 px-4 py-2 rounded-full bg-white border border-emerald-200 text-emerald-700 font-semibold text-sm hover:bg-emerald-50 transition"
+                    >
+                      + Add task
+                    </button>
+                  </div>
+
+                  {selectedTasks.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-10">
+                      No tasks in this project yet.
+                    </p>
+                  ) : (
+                    <div className="grid sm:grid-cols-3 gap-4 mt-5">
+                      {COLUMNS.map((col) => {
+                        const items = selectedTasks.filter((t) => t.status === col.key);
+                        return (
+                          <div key={col.key} className="bg-gray-50 rounded-xl p-3">
+                            <div className="flex items-center gap-2 mb-3">
+                              <span className={`w-2.5 h-2.5 rounded-full ${col.dot}`} />
+                              <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                                {col.label}
+                              </h3>
+                              <span className="ml-auto text-xs text-gray-400">
+                                {items.length}
+                              </span>
+                            </div>
+                            <ul className="space-y-2">
+                              {items.map((t) => (
+                                <li
+                                  key={t.id ?? t.task_id}
+                                  className="bg-white rounded-lg p-3 border border-gray-100"
+                                >
+                                  <p className="text-sm font-medium text-gray-800">
+                                    {t.title}
+                                  </p>
+                                  {t.due_date && (
+                                    <p className="text-xs text-gray-400 mt-1">
+                                      Due {formatDue(t.due_date)}
+                                    </p>
+                                  )}
+                                </li>
+                              ))}
+                              {items.length === 0 && (
+                                <li className="text-xs text-gray-300 text-center py-3">
+                                  Nothing here
+                                </li>
+                              )}
+                            </ul>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </section>
+          </div>
+        )}
+
+        {showProjectModal && (
+          <NewProjectModal
+            onClose={() => setShowProjectModal(false)}
+            onCreated={() => {
+              load();
+              setShowProjectModal(false);
+            }}
+          />
+        )}
+        {showTaskModal && (
+          <NewTaskModal
+            onClose={() => setShowTaskModal(false)}
+            onCreated={() => {
+              load();
+              setShowTaskModal(false);
+            }}
+          />
         )}
       </main>
     </div>
   );
-};
-
-export default ProjectManagementPage;
+}

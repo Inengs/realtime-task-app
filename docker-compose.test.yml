@@ -1,0 +1,44 @@
+# AUTOMATED TESTS: a throwaway database in memory, nothing persists.
+#   docker compose -f docker-compose.test.yml run --rm tests
+#   docker compose -f docker-compose.test.yml down -v
+name: taskflow-test
+
+services:
+  db-test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d test"]
+      interval: 2s
+      retries: 15
+
+  tests:
+    image: golang:1.25
+    working_dir: /app
+    volumes:
+      - ./server:/app
+      - gomod:/go/pkg/mod
+    environment:
+      # Adjust the names to whatever your tests read.
+      DB_HOST: db-test
+      DB_PORT: 5432
+      DB_USER: test
+      DB_PASSWORD: test
+      DB_NAME: test
+      DB_SSLMODE: disable
+      SESSION_SECRET: test-secret
+      FRONTEND_URL: http://localhost:3000
+      APP_ENV: test
+      GIN_MODE: test
+    command: go test ./... -count=1
+    depends_on:
+      db-test:
+        condition: service_healthy
+
+volumes:
+  gomod:

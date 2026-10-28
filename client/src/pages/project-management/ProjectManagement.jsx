@@ -1,21 +1,13 @@
-// ProjectManagement.jsx
-import { useEffect, useMemo, useState } from "react";
+// src/pages/Projects/ProjectManagement.jsx
+import { useMemo, useState } from "react";
+import { useAuth } from "../../hooks/useAuth";
+import { useTasks } from "../../hooks/useTasks";
+import { useProjects, projectId, projectName } from "../../hooks/useProjects";
+import { useNotifications } from "../../contexts/NotificationContext";
+import { Spinner, ErrorBanner, EmptyState } from "../../components/StateViews";
 import Header from "../../components/Header";
 import NewProjectModal from "../../components/NewProjectModal";
 import NewTaskModal from "../../components/NewTaskModal";
-import api from "../../services/api";
-import { useAuth } from "../../contexts/AuthContext";
-
-/* ---------- helpers ---------- */
-const toArray = (data, key) =>
-  Array.isArray(data) ? data : Array.isArray(data?.[key]) ? data[key] : [];
-
-// API may send is_read (snake_case) or isRead (camelCase)
-const isUnread = (n) => !(n.is_read ?? n.isRead);
-
-// Tolerate different field names until the API shape is confirmed
-const projectId = (p) => p.id ?? p.project_id;
-const projectName = (p) => p.name ?? p.title ?? p.project_name ?? "Untitled project";
 
 const COLUMNS = [
   { key: "pending", label: "Pending", dot: "bg-gray-300" },
@@ -29,44 +21,36 @@ const formatDue = (d) =>
     : "";
 
 export default function ProjectManagement() {
-  const { user } = useAuth();
-  const [projects, setProjects] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { user, isAuthenticated } = useAuth();
+
+  const {
+    tasks,
+    loading: tasksLoading,
+    error: tasksError,
+    retry: retryTasks,
+    reload: reloadTasks,
+  } = useTasks({ enabled: isAuthenticated, live: true });
+
+  // Passing tasks adds .progress { total, done, pct } to every project
+  const {
+    projects,
+    loading: projectsLoading,
+    error: projectsError,
+    retry: retryProjects,
+    reload: reloadProjects,
+  } = useProjects({ enabled: isAuthenticated, live: true, tasks });
+
+  // Unread badge comes from the shared NotificationProvider
+  const notifications = useNotifications();
+  const unreadCount = notifications?.unreadCount ?? 0;
+
   const [selectedId, setSelectedId] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
 
-  const load = async () => {
-    try {
-      const [p, t] = await Promise.all([api.get("/projects/"), api.get("/tasks/")]);
-      setProjects(toArray(p.data, "projects"));
-      setTasks(toArray(t.data, "tasks"));
-      setError("");
-    } catch (err) {
-      console.error("Failed to load projects/tasks:", err);
-      setError("Couldn't load your projects. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loading = projectsLoading || tasksLoading;
 
-  useEffect(() => {
-    load();
-  }, []);
-
-  useEffect(() => {
-    if (!user?.user_id) return;
-    api
-      .get(`/notifications/${user.user_id}`)
-      .then((res) => setNotifications(toArray(res.data, "notifications")))
-      .catch((err) => console.error("Failed to fetch notifications:", err));
-  }, [user?.user_id]);
-
-  /* ---------- derived ---------- */
   const visibleProjects = useMemo(
     () =>
       projects.filter((p) =>
@@ -75,25 +59,17 @@ export default function ProjectManagement() {
     [projects, searchQuery]
   );
 
-  const tasksOf = (id) => tasks.filter((t) => t.project_id === id);
-  const progressOf = (id) => {
-    const list = tasksOf(id);
-    const done = list.filter((t) => t.status === "done").length;
-    return {
-      total: list.length,
-      done,
-      pct: list.length ? Math.round((done / list.length) * 100) : 0,
-    };
-  };
-
   const selected =
     projects.find((p) => projectId(p) === selectedId) ?? visibleProjects[0] ?? null;
-  const selectedTasks = selected ? tasksOf(projectId(selected)) : [];
+  const selectedTasks = useMemo(
+    () => (selected ? tasks.filter((t) => t.project_id === projectId(selected)) : []),
+    [tasks, selected]
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
-        unreadCount={notifications.filter(isUnread).length}
+        unreadCount={unreadCount}
         onSearchChange={setSearchQuery}
         searchQuery={searchQuery}
         user={user}
@@ -106,8 +82,9 @@ export default function ProjectManagement() {
               Projects
             </h1>
             <p className="text-sm text-gray-500 mt-1">
-              {projects.length} {projects.length === 1 ? "project" : "projects"} ·{" "}
-              {tasks.length} {tasks.length === 1 ? "task" : "tasks"}
+              {loading
+                ? "Loading…"
+                : `${projects.length} ${projects.length === 1 ? "project" : "projects"} · ${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}`}
             </p>
           </div>
           <button
@@ -118,32 +95,29 @@ export default function ProjectManagement() {
           </button>
         </div>
 
-        {error && (
-          <div className="mt-6 flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            <span>{error}</span>
-            <button onClick={load} className="font-semibold underline">
-              Retry
-            </button>
+        {(projectsError || tasksError) && (
+          <div className="mt-6 space-y-3">
+            {projectsError && (
+              <ErrorBanner message={projectsError} onRetry={retryProjects} />
+            )}
+            {tasksError && <ErrorBanner message={tasksError} onRetry={retryTasks} />}
           </div>
         )}
 
         {loading ? (
-          <p className="mt-10 text-center text-sm text-emerald-600 animate-pulse">
-            Loading projects…
-          </p>
-        ) : projects.length === 0 && !error ? (
-          <div className="mt-8 bg-white rounded-2xl border border-dashed border-gray-300 p-10 text-center">
-            <p className="text-lg font-semibold text-gray-800">No projects yet</p>
-            <p className="text-sm text-gray-500 mt-1">
-              Create your first project to start organising tasks.
-            </p>
-            <button
-              onClick={() => setShowProjectModal(true)}
-              className="mt-4 px-5 py-2.5 rounded-full bg-emerald-600 text-white font-semibold text-sm hover:bg-emerald-700 transition"
-            >
-              Create a project
-            </button>
-          </div>
+          <Spinner label="Loading projects…" />
+        ) : projects.length === 0 ? (
+          projectsError ? null : (
+            <div className="mt-8">
+              <EmptyState
+                kind="projects"
+                title="No projects yet"
+                text="Create your first project to start organising tasks."
+                actionLabel="Create a project"
+                onAction={() => setShowProjectModal(true)}
+              />
+            </div>
+          )
         ) : (
           <div className="grid lg:grid-cols-3 gap-6 mt-6">
             {/* ---- project list ---- */}
@@ -155,7 +129,7 @@ export default function ProjectManagement() {
               )}
               {visibleProjects.map((p) => {
                 const id = projectId(p);
-                const { total, done, pct } = progressOf(id);
+                const { total, done, pct } = p.progress;
                 const active = selected && projectId(selected) === id;
                 return (
                   <button
@@ -268,7 +242,7 @@ export default function ProjectManagement() {
           <NewProjectModal
             onClose={() => setShowProjectModal(false)}
             onCreated={() => {
-              load();
+              reloadProjects();
               setShowProjectModal(false);
             }}
           />
@@ -277,7 +251,7 @@ export default function ProjectManagement() {
           <NewTaskModal
             onClose={() => setShowTaskModal(false)}
             onCreated={() => {
-              load();
+              reloadTasks();
               setShowTaskModal(false);
             }}
           />

@@ -1,7 +1,10 @@
-// DashboardPage.jsx
-import { useEffect, useState, useMemo } from "react";
-import api from "../../services/api";
-import { useAuth } from "../../contexts/AuthContext";
+// src/pages/Dashboard/DashboardPage.jsx
+import { useMemo, useState } from "react";
+import { useAuth } from "../../hooks/useAuth";
+import { useTasks, filterTasks } from "../../hooks/useTasks";
+import { useProjects } from "../../hooks/useProjects";
+import { useNotifications } from "../../contexts/NotificationContext";
+import { Spinner, ErrorBanner, EmptyState } from "../../components/StateViews";
 import ActiveProjects from "../../components/ActiveProjects";
 import UpcomingTasks from "../../components/UpcomingTasks";
 import NewProjectModal from "../../components/NewProjectModal";
@@ -23,28 +26,21 @@ const formatDate = () =>
     day: "numeric",
   });
 
+const ACCENTS = {
+  emerald: "text-emerald-600",
+  teal: "text-teal-600",
+  cyan: "text-cyan-600",
+};
+
 const StatCard = ({ label, value, sub, accent = "emerald" }) => (
   <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
     <p className="text-xs uppercase tracking-wider text-gray-400 font-semibold">
       {label}
     </p>
-    <p
-      className={`text-3xl font-bold mt-1 ${
-        accent === "emerald"
-          ? "text-emerald-600"
-          : accent === "teal"
-          ? "text-teal-600"
-          : "text-cyan-600"
-      }`}
-    >
-      {value}
-    </p>
+    <p className={`text-3xl font-bold mt-1 ${ACCENTS[accent]}`}>{value}</p>
     {sub && <p className="text-xs text-gray-500 mt-1">{sub}</p>}
   </div>
 );
-
-const toArray = (data, key) =>
-  Array.isArray(data) ? data : Array.isArray(data?.[key]) ? data[key] : [];
 
 // Status values as stored in the database
 const STATUS_DOT = {
@@ -58,106 +54,42 @@ const STATUS_LABEL = {
   pending: "Pending",
 };
 
-// API may send is_read (snake_case) or isRead (camelCase)
-const isUnread = (n) => !(n.is_read ?? n.isRead);
-
 export default function DashboardPage() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading, isAuthenticated, displayName } = useAuth();
 
-  const [projects, setProjects] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [notifications, setNotifications] = useState([]);
+  // Data + live WebSocket updates (the hooks own the sockets now)
+  const {
+    tasks,
+    stats,
+    loading: tasksLoading,
+    error: tasksError,
+    retry: retryTasks,
+    reload: reloadTasks,
+  } = useTasks({ enabled: isAuthenticated, live: true });
+
+  const {
+    projects,
+    loading: projectsLoading,
+    error: projectsError,
+    retry: retryProjects,
+    reload: reloadProjects,
+  } = useProjects({ enabled: isAuthenticated, live: true, tasks });
+
+  // Unread badge comes from the shared NotificationProvider (no second fetch/socket here)
+  const notifications = useNotifications();
+  const unreadCount = notifications?.unreadCount ?? 0;
+
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [taskFilter, setTaskFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredTasks = useMemo(() => {
-    return tasks
-      .filter((t) => taskFilter === "All" || t.status === taskFilter)
-      .filter((t) => (t.title ?? "").toLowerCase().includes(searchQuery.toLowerCase()));
-  }, [tasks, taskFilter, searchQuery]);
+  const filteredTasks = useMemo(
+    () => filterTasks(tasks, { status: taskFilter, query: searchQuery }),
+    [tasks, taskFilter, searchQuery]
+  );
 
-  /* ---------- fetchers ---------- */
-  const fetchProjects = async () => {
-    try {
-      const res = await api.get("/projects/");
-      setProjects(toArray(res.data, "projects"));
-    } catch (err) {
-      console.error("Failed to fetch projects:", err);
-    }
-  };
-
-  const fetchTasks = async () => {
-    try {
-      const res = await api.get("/tasks/");
-      setTasks(toArray(res.data, "tasks"));
-    } catch (err) {
-      console.error("Failed to fetch tasks:", err);
-    }
-  };
-
-  const fetchNotifications = async () => {
-    try {
-      const res = await api.get(`/notifications/${user?.user_id}`);
-      setNotifications(toArray(res.data, "notifications"));
-    } catch (err) {
-      console.error("Failed to fetch notifications:", err);
-    }
-  };
-
-  /* ---------- websockets ---------- */
-  useEffect(() => {
-    if (!user) return;
-    fetchProjects();
-    fetchTasks();
-    fetchNotifications();
-
-    const WS_URL =
-      import.meta.env.VITE_WS_URL || "wss://taskflow-api.inengiyeemmanuel.site";
-
-    const projectSocket = new WebSocket(`${WS_URL}/ws/projects/`);
-    const taskSocket = new WebSocket(`${WS_URL}/ws/tasks/`);
-    const notifSocket = new WebSocket(`${WS_URL}/ws/notifications/`);
-
-    projectSocket.onmessage = (e) => {
-      const msg = JSON.parse(e.data);
-      if (msg.type === "project_created")
-        setProjects((prev) =>
-          prev.some((p) => p.id === msg.data.id) ? prev : [...prev, msg.data]
-        );
-      if (msg.type === "project_updated")
-        setProjects((prev) =>
-          prev.map((p) => (p.id === msg.data.id ? msg.data : p))
-        );
-      if (msg.type === "project_deleted")
-        setProjects((prev) => prev.filter((p) => p.id !== msg.data.id));
-    };
-
-    taskSocket.onmessage = (e) => {
-      const msg = JSON.parse(e.data);
-      if (msg.type === "task_created")
-        setTasks((prev) =>
-          prev.some((t) => t.id === msg.data.id) ? prev : [...prev, msg.data]
-        );
-      if (msg.type === "task_updated")
-        setTasks((prev) =>
-          prev.map((t) => (t.id === msg.data.id ? msg.data : t))
-        );
-      if (msg.type === "task_deleted")
-        setTasks((prev) => prev.filter((t) => t.id !== msg.data.id));
-    };
-
-    notifSocket.onmessage = () => fetchNotifications();
-
-    return () => {
-      projectSocket.close();
-      taskSocket.close();
-      notifSocket.close();
-    };
-  }, [user?.user_id]);
-
-  if (loading)
+  if (authLoading)
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-pulse text-emerald-600 font-medium">
@@ -165,37 +97,38 @@ export default function DashboardPage() {
         </div>
       </div>
     );
-  if (!user) return <p className="p-8 text-gray-600">Please log in to view the dashboard.</p>;
+  if (!isAuthenticated)
+    return <p className="p-8 text-gray-600">Please log in to view the dashboard.</p>;
 
-  /* ---------- derived stats ---------- */
-  const completedTasks = tasks.filter((t) => t.status === "done").length;
-  const inProgress = tasks.filter((t) => t.status === "in-progress").length;
-  const completionRate = tasks.length
-    ? Math.round((completedTasks / tasks.length) * 100)
-    : 0;
-
-  const recentTasks = [...tasks].slice(0, 4);
+  const recentTasks = tasks.slice(0, 4);
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
-        unreadCount={notifications.filter(isUnread).length}
+        unreadCount={unreadCount}
         onSearchChange={setSearchQuery}
         searchQuery={searchQuery}
         user={user}
       />
 
       <main className="pt-24 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+        {(projectsError || tasksError) && (
+          <div className="space-y-3 mb-6">
+            {projectsError && (
+              <ErrorBanner message={projectsError} onRetry={retryProjects} />
+            )}
+            {tasksError && <ErrorBanner message={tasksError} onRetry={retryTasks} />}
+          </div>
+        )}
+
         {/* ----- Greeting hero ----- */}
         <div className="bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 rounded-3xl p-6 sm:p-8 text-white shadow-lg shadow-emerald-200/50 relative overflow-hidden">
           <div className="absolute -right-10 -top-10 w-48 h-48 bg-white/10 rounded-full blur-2xl" />
           <div className="absolute -right-20 bottom-0 w-56 h-56 bg-emerald-300/20 rounded-full blur-3xl" />
           <div className="relative">
-            <p className="text-emerald-50 text-sm font-medium">
-              {formatDate()}
-            </p>
+            <p className="text-emerald-50 text-sm font-medium">{formatDate()}</p>
             <h1 className="text-3xl sm:text-4xl font-bold mt-1 tracking-tight">
-              {getGreeting()}, {user?.username || user?.name || "there"} 👋
+              {getGreeting()}, {displayName || "there"} 👋
             </h1>
             <p className="text-emerald-50 mt-2 text-base">
               Let's build something great today!
@@ -205,10 +138,28 @@ export default function DashboardPage() {
 
         {/* ----- Stats row ----- */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-6">
-          <StatCard label="Active Projects" value={projects.length} sub="in progress" />
-          <StatCard label="Total Tasks" value={tasks.length} sub="all time" accent="teal" />
-          <StatCard label="Completed" value={completedTasks} sub="all time" accent="emerald" />
-          <StatCard label="In Progress" value={inProgress} sub="active now" accent="cyan" />
+          <StatCard
+            label="Projects"
+            value={projectsLoading ? "…" : projects.length}
+            sub="all projects"
+          />
+          <StatCard
+            label="Total Tasks"
+            value={tasksLoading ? "…" : stats.total}
+            sub="all time"
+            accent="teal"
+          />
+          <StatCard
+            label="Completed"
+            value={tasksLoading ? "…" : stats.done}
+            sub="all time"
+          />
+          <StatCard
+            label="In Progress"
+            value={tasksLoading ? "…" : stats.inProgress}
+            sub="active now"
+            accent="cyan"
+          />
         </div>
 
         {/* ----- Action buttons ----- */}
@@ -227,29 +178,47 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* ----- Active projects + recent tasks ----- */}
+        {/* ----- Projects + recent tasks ----- */}
         <div className="grid lg:grid-cols-3 gap-6 mt-6">
           <div className="lg:col-span-2">
-            <ActiveProjects projects={projects} />
+            {projectsLoading ? (
+              <Spinner card label="Loading projects…" />
+            ) : projects.length === 0 ? (
+              projectsError ? null : (
+                <EmptyState
+                  kind="projects"
+                  title="No projects yet"
+                  text="Create a project to start organising your tasks."
+                  actionLabel="New project"
+                  onAction={() => setShowNewProjectModal(true)}
+                />
+              )
+            ) : (
+              <ActiveProjects projects={projects} />
+            )}
           </div>
 
           <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-gray-800">Recent Tasks</h3>
-              <span className="text-xs text-emerald-600 font-semibold">
-                View all
-              </span>
             </div>
-            {recentTasks.length === 0 ? (
-              <p className="text-sm text-gray-400 py-6 text-center">
-                No tasks yet — create your first one!
-              </p>
+            {tasksLoading ? (
+              <Spinner label="Loading tasks…" />
+            ) : recentTasks.length === 0 ? (
+              tasksError ? null : (
+                <EmptyState
+                  compact
+                  kind="tasks"
+                  title="No tasks yet"
+                  text="Create your first one!"
+                />
+              )
             ) : (
               <ul className="space-y-3">
                 {recentTasks.map((t) => (
                   <li
                     key={t.id}
-                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition cursor-pointer"
+                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition"
                   >
                     <span
                       className={`w-2.5 h-2.5 rounded-full ${
@@ -260,7 +229,9 @@ export default function DashboardPage() {
                       <p className="text-sm font-medium text-gray-800 truncate">
                         {t.title}
                       </p>
-                      <p className="text-xs text-gray-400">{STATUS_LABEL[t.status] || t.status || "—"}</p>
+                      <p className="text-xs text-gray-400">
+                        {STATUS_LABEL[t.status] || t.status || "—"}
+                      </p>
                     </div>
                     <span className="text-xs text-gray-400">
                       {t.due_date
@@ -279,13 +250,17 @@ export default function DashboardPage() {
 
         {/* ----- Upcoming tasks full width ----- */}
         <div className="mt-6">
-          <UpcomingTasks
-            tasks={filteredTasks}
-            taskFilter={taskFilter}
-            setTaskFilter={setTaskFilter}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-          />
+          {tasksLoading ? (
+            <Spinner card label="Loading tasks…" />
+          ) : (
+            <UpcomingTasks
+              tasks={filteredTasks}
+              taskFilter={taskFilter}
+              setTaskFilter={setTaskFilter}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+            />
+          )}
         </div>
 
         {/* ----- Progress strip ----- */}
@@ -293,30 +268,30 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold text-gray-800">Overall Progress</h3>
             <span className="text-emerald-600 font-bold text-lg">
-              {completionRate}%
+              {stats.completionRate}%
             </span>
           </div>
           <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
             <div
               className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all"
-              style={{ width: `${completionRate}%` }}
+              style={{ width: `${stats.completionRate}%` }}
             />
           </div>
           <p className="text-xs text-gray-500 mt-2">
-            {completedTasks} of {tasks.length} tasks completed
+            {stats.done} of {stats.total} tasks completed
           </p>
         </div>
 
         {showNewProjectModal && (
           <NewProjectModal
             onClose={() => setShowNewProjectModal(false)}
-            onCreated={fetchProjects}
+            onCreated={reloadProjects}
           />
         )}
         {showNewTaskModal && (
           <NewTaskModal
             onClose={() => setShowNewTaskModal(false)}
-            onCreated={fetchTasks}
+            onCreated={reloadTasks}
           />
         )}
       </main>

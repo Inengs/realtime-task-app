@@ -1,7 +1,10 @@
-taskflow.inengiyeemmanuel.site {
+// Site addresses come from the environment so the same file works everywhere:
+//   prod       FRONTEND_SITE=taskflow.inengiyeemmanuel.site        (automatic HTTPS)
+//   prod check FRONTEND_SITE=http://taskflow.localhost             (plain HTTP, no certs)
+{$FRONTEND_SITE} {
     reverse_proxy web:80
 }
 
-taskflow-api.inengiyeemmanuel.site {
+{$API_SITE} {
     reverse_proxy api:8080
 }

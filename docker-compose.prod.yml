@@ -1,0 +1,33 @@
+# PRODUCTION (EC2), also used for the local "prod check".
+# Only Caddy is exposed to the internet. db / api / web have no published ports.
+services:
+  db:
+    restart: unless-stopped
+
+  api:
+    restart: unless-stopped
+
+  web:
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      FRONTEND_SITE: ${FRONTEND_SITE:?set FRONTEND_SITE}
+      API_SITE: ${API_SITE:?set API_SITE}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - web
+
+volumes:
+  caddy_data:
+  caddy_config:

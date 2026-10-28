@@ -1,70 +1,54 @@
+# Base services, shared by every environment.
+# No ports are published here: each environment decides what to expose.
+#   local : docker-compose.override.yml   (loaded automatically by `docker compose up`)
+#   prod  : docker-compose.prod.yml       (adds Caddy; see .env.prod.example)
 services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: taskapp
-    ports:
-      - "5432:5432"
-    volumes: 
+      POSTGRES_USER: ${DB_USER:?set DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:?set DB_NAME}
+    volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       retries: 5
 
   api:
     build: ./server
     environment:
-      DB_HOST: db          # service name, not localhost — that's the container networking gotcha
+      DB_HOST: db # service name, not localhost
       DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: password
-      DB_NAME: taskapp
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
       DB_SSLMODE: disable
-      SESSION_SECRET: dev-secret
-      FRONTEND_URL: https://taskflow.inengiyeemmanuel.site
-      APP_BASE_URL: https://taskflow.inengiyeemmanuel.site
-      APP_ENV: development
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL:?set FRONTEND_URL}
+      APP_BASE_URL: ${APP_BASE_URL:?set APP_BASE_URL}
+      APP_ENV: ${APP_ENV:?set APP_ENV}
+      GIN_MODE: ${GIN_MODE:-release}
       PORT: 8080
-      EMAIL_FROM: ${EMAIL_FROM}
-      EMAIL_USERNAME: ${EMAIL_USERNAME}
-      EMAIL_PASSWORD: ${EMAIL_PASSWORD}
-      EMAIL_SMTP_HOST: ${EMAIL_SMTP_HOST}
-      EMAIL_SMTP_PORT: ${EMAIL_SMTP_PORT}
-    ports:
-      - "8080:8080"
+      EMAIL_FROM: ${EMAIL_FROM:?set EMAIL_FROM}
+      EMAIL_USERNAME: ${EMAIL_USERNAME:-}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD:-}
+      EMAIL_SMTP_HOST: ${EMAIL_SMTP_HOST:?set EMAIL_SMTP_HOST}
+      EMAIL_SMTP_PORT: ${EMAIL_SMTP_PORT:?set EMAIL_SMTP_PORT}
     depends_on:
       db:
-        condition: service_healthy   # app crashes if DB isn't ready yet
+        condition: service_healthy
 
   web:
     build:
       context: ./client
       args:
-        VITE_API_URL: https://taskflow-api.inengiyeemmanuel.site
-        VITE_WS_URL: wss://taskflow-api.inengiyeemmanuel.site
-    ports:
-      - "3000:80"
+        # Baked into the JS bundle at build time, so each environment needs its own build.
+        VITE_API_URL: ${VITE_API_URL:?set VITE_API_URL}
+        VITE_WS_URL: ${VITE_WS_URL:?set VITE_WS_URL}
     depends_on:
       - api
-
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - api
-      - web
 
 volumes:
   pgdata:
-  caddy_data:
-  caddy_config:

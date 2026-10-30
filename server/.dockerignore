@@ -1,0 +1,28 @@
+# secrets and local config
+.env
+.env.*
+!.env.example
+
+# VCS and editor
+.git
+.gitignore
+.github
+.vscode
+.idea
+
+# build output and tooling
+tmp/
+bin/
+*.exe
+*.test
+*.out
+coverage.out
+air.toml
+.air.toml
+
+# docker / docs (not needed to compile)
+Dockerfile*
+docker-compose*.yml
+*.md
+*.log
+.DS_Store

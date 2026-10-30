@@ -1,3 +1,24 @@
+# secrets and local config
+.env
+.env.*
+!.env.example
+
+# dependencies and build output (rebuilt inside the image)
 node_modules
 dist
-.env
+build
+coverage
+
+# VCS and editor
+.git
+.gitignore
+.github
+.vscode
+.idea
+
+# docker / docs
+Dockerfile*
+docker-compose*.yml
+*.md
+*.log
+.DS_Store

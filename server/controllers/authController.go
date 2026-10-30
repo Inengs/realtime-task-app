@@ -326,17 +326,18 @@ func LoginFunc(c *gin.Context) {
 		return
 	}
 
-	// CREATE SESSION
+	// Get returns a fresh, usable session even when the old cookie is invalid
+	// (e.g. SESSION_SECRET changed), so log it and carry on.
 	session, err := middleware.Store.Get(c.Request, "auth-session")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "session error"})
-		return
+		log.Printf("login: ignoring invalid session cookie: %v", err)
 	}
 	// Store user_id in session
 	session.Values["user_id"] = userID
 	// Save session and set cookie
 	err = session.Save(c.Request, c.Writer)
 	if err != nil {
+		log.Printf("login: session save failed: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save session"})
 		return
 	}
@@ -405,9 +406,8 @@ func MeFunc(c *gin.Context) {
 	// Get session from request
 	session, err := middleware.Store.Get(c.Request, "auth-session")
 	if err != nil {
-		// Return 500 if session store fails
-		log.Printf("Session error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Session error"})
+		log.Printf("me: invalid session cookie: %v", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
 		return
 	}
 	log.Printf("Session values: %v", session.Values)

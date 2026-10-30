@@ -12,7 +12,8 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
       - name: Vet & build backend
         working-directory: server
         run: |
@@ -33,7 +34,25 @@ jobs:
   deploy:
     needs: build-test          # only runs if the build passed
     runs-on: ubuntu-latest
+    concurrency: deploy-prod   # never run two deploys at once (they'd fight over the SG rule)
+    env:
+      SG_ID: ${{ secrets.EC2_SG_ID }}
     steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Open SSH for this runner only
+        run: |
+          RUNNER_IP=$(curl -s https://checkip.amazonaws.com)
+          echo "RUNNER_IP=$RUNNER_IP" >> "$GITHUB_ENV"
+          aws ec2 authorize-security-group-ingress \
+            --group-id "$SG_ID" --protocol tcp --port 22 --cidr "${RUNNER_IP}/32"
+          sleep 5
+
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1
         with:
@@ -42,9 +61,21 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           command_timeout: 30m   # builds are slow on t3.micro — default 30s WILL time out
           script: |
+            set -e
             cd ~/realtime-task-app
             git pull origin main
             docker compose up -d --build
             docker image prune -f
-            sleep 10
-            curl -f http://localhost > /dev/null && echo "✅ Site is up"
+            for i in $(seq 1 12); do
+              if curl -fsS -o /dev/null https://taskflow.inengiyeemmanuel.site; then
+                echo "✅ Site is up"; exit 0
+              fi
+              sleep 5
+            done
+            echo "❌ Site did not come up"; docker compose ps; exit 1
+
+      - name: Close SSH again
+        if: always()             # runs even if the deploy failed
+        run: |
+          aws ec2 revoke-security-group-ingress \
+            --group-id "$SG_ID" --protocol tcp --port 22 --cidr "${RUNNER_IP}/32" || true

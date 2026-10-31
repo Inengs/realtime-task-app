@@ -40,7 +40,7 @@ export function useTasks({ enabled = true, live = false, projectId } = {}) {
     enabled,
   });
 
-  useLiveSync({ path: "/ws/tasks/", prefix: "task", setData, enabled: enabled && live });
+  useLiveSync({ path: "/ws/tasks", prefix: "task", setData, enabled: enabled && live });
 
   const tasks = useMemo(
     () => (projectId == null ? data : data.filter((t) => t.project_id === projectId)),

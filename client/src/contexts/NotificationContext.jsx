@@ -66,7 +66,7 @@ export function NotificationProvider({ user, children }) {
 
     const WS_URL =
       import.meta.env.VITE_WS_URL || "wss://taskflow-api.inengiyeemmanuel.site";
-    const ws = new WebSocket(`${WS_URL}/ws/notifications/`);
+    const ws = new WebSocket(`${WS_URL}/ws/notifications`);
 
     ws.onmessage = (event) => {
       try {

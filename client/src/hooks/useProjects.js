@@ -33,7 +33,7 @@ export function useProjects({ enabled = true, live = false, tasks } = {}) {
   });
 
   useLiveSync({
-    path: "/ws/projects/",
+    path: "/ws/projects",
     prefix: "project",
     setData,
     enabled: enabled && live,

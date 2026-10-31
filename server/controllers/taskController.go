@@ -161,7 +161,7 @@ func CreateNewTask(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send notification"})
 		return
 	}
-	manager.BroadcastTask(userIDInt, task, "task_update")
+	manager.BroadcastTask(userIDInt, task, "task_created")
 
 	// Return created task
 	c.JSON(http.StatusCreated, gin.H{"message": "Task created successfully", "task": task})
@@ -235,7 +235,7 @@ func UpdateTask(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send notification"})
 		return
 	}
-	manager.BroadcastTask(userIDInt, task, "task_update")
+	manager.BroadcastTask(userIDInt, task, "task_updated")
 
 	// Return Updated task
 	c.JSON(http.StatusOK, gin.H{"message": "Task updated successfully", "task": task})
@@ -378,7 +378,7 @@ func UpdateTaskStatus(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send notification"})
 		return
 	}
-	manager.BroadcastTask(userIDInt, task, "task_update")
+	manager.BroadcastTask(userIDInt, task, "task_updated")
 
 	// Return updated task
 	c.JSON(http.StatusOK, gin.H{"message": "Task status updated successfully", "task": task})

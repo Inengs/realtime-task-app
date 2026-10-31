@@ -3,12 +3,25 @@ package controllers
 import (
 	"log"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 
 	"github.com/Inengs/realtime-task-app/models"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
+
+// allowedOrigin lets only our own frontend open sockets.
+// Browsers always send Origin on a WebSocket handshake; non-browser
+// clients (curl, tests) send none and still have to pass authentication.
+func allowedOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	return origin == strings.TrimRight(os.Getenv("FRONTEND_URL"), "/")
+}
 
 // ClientManager manages WebSocket connections
 type ClientManager struct {
@@ -174,7 +187,7 @@ func WebSocketHandler(c *gin.Context) {
 
 	// Upgrade HTTP to WebSocket
 	upgrader := websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool { return true }, // Adjust for production
+		CheckOrigin: allowedOrigin,
 	}
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -211,7 +224,7 @@ func WebSocketTaskHandler(c *gin.Context) {
 
 	// Upgrade HTTP to WebSocket
 	upgrader := websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool { return true }, // Adjust for production
+		CheckOrigin: allowedOrigin,
 	}
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -248,7 +261,7 @@ func WebSocketProjectHandler(c *gin.Context) {
 
 	// Upgrade HTTP to WebSocket
 	upgrader := websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool { return true },
+		CheckOrigin: allowedOrigin,
 	}
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {

@@ -1,25 +1,25 @@
 import logo from "../assets/images/logo-2.svg"
 import { NavLink } from "react-router-dom"
-import ReminderCard from "./ReminderCard"   
+import ReminderCard from "./ReminderCard"
+import { mainMenu, teamMenu, type RouteConfig } from "../config/routes"   
 
-const MainMenu = [
-    {to: "/dashboard", icon: "home", label: "Dashboard"},
-    {to: "/projects", icon: "folder", label: "Projects"},
-    {to: "/tasks", icon: "check-square", label: "Tasks"},
-    {to: "/calendar", icon: "calendar", label: "Calendar"},
-    {to: "/performance", icon: "bar-chart-2", label: "Performance"},
-    {to: "help", icon: "help-circle", label: "Help Center"},
-    {to: "/settings", icon: "settings", label: "Settings"},
-]
+// const MainMenu = [
+//     {to: "/dashboard", icon: "home", label: "Dashboard"},
+//     {to: "/projects", icon: "folder", label: "Projects"},
+//     {to: "/tasks", icon: "check-square", label: "Tasks"},
+//     {to: "/calendar", icon: "calendar", label: "Calendar"},
+//     {to: "/performance", icon: "bar-chart-2", label: "Performance"},
+//     {to: "help", icon: "help-circle", label: "Help Center"},
+// ]
 
-const TeamMenu = [
-    {to: "/employees", icon: "users", label: "Employees"},
-    {to: "/teams", icon: "users", label: "Teams"},
-    {to: "/recruitment", icon: "user-plus", label: "Recruitment and Hiring"},
-    {to: "/invoices", icon: "file-text", label: "Invoices and Billing"},
-]
+// const TeamMenu = [
+//     {to: "/employees", icon: "users", label: "Employees"},
+//     {to: "/teams", icon: "users", label: "Teams"},
+//     {to: "/recruitment", icon: "user-plus", label: "Recruitment and Hiring"},
+//     {to: "/invoices", icon: "file-text", label: "Invoices and Billing"},
+// ]
 
-function Section({ title, items }: { title: string, items: { to: string, icon: string, label: string }[] }) {
+function Section({ title, items }: { title: string, items: RouteConfig[]; }) {
     return (
         <div>
             <p>
@@ -29,8 +29,8 @@ function Section({ title, items }: { title: string, items: { to: string, icon: s
             <nav>
                 {items.map((item) => (
                     <NavLink
-                        key={item.to}
-                        to={item.to}
+                        key={item.path}
+                        to={item.path}
                         className={({ isActive }) =>
                             `flex items-center gap-2 px-4 py-2 rounded-lg transition-colors duration-200 ${
                                 isActive ? "bg-emerald-100 text-emerald-600" : "text-gray-600 hover:bg-gray-100"
@@ -55,8 +55,8 @@ export default function Sidebar() {
                 <span className="text-xl font-bold tracking-tight text-emerald-600">TaskFlow</span>
             </div>
 
-            <Section title="Main Menu" items={MainMenu} />
-            <Section title="Team" items={TeamMenu} />
+            <Section title="Main Menu" items={mainMenu} />
+            <Section title="Team" items={teamMenu} />
 
             <div className="mt-auto">
                 <ReminderCard

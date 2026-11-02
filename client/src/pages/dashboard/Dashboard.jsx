@@ -9,7 +9,7 @@ import ActiveProjects from "../../components/body/ActiveProjects";
 import UpcomingTasks from "../../components/body/UpcomingTasks";
 import NewProjectModal from "../../components/body/NewProjectModal";
 import NewTaskModal from "../../components/body/NewTaskModal";
-import Header from "../../components/header/Header";
+
 
 /* ---------- helpers ---------- */
 const getGreeting = () => {
@@ -104,13 +104,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header
-        unreadCount={unreadCount}
-        onSearchChange={setSearchQuery}
-        searchQuery={searchQuery}
-        user={user}
-      />
-
       <main className="pt-24 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
         {(projectsError || tasksError) && (
           <div className="space-y-3 mb-6">

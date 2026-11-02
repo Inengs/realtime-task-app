@@ -1,6 +1,6 @@
 // Profile.jsx
 import { useEffect, useState } from "react";
-import Header from "../../components/Header";
+import Header from "../../components/header/Header";
 import api from "../../services/api";
 import { useAuth } from "../../contexts/AuthContext";
 

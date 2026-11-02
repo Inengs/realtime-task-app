@@ -4,10 +4,10 @@ import { useAuth } from "../../hooks/useAuth";
 import { useTasks } from "../../hooks/useTasks";
 import { useProjects, projectId, projectName } from "../../hooks/useProjects";
 import { useNotifications } from "../../contexts/NotificationContext";
-import { Spinner, ErrorBanner, EmptyState } from "../../components/StateViews";
-import Header from "../../components/Header";
-import NewProjectModal from "../../components/NewProjectModal";
-import NewTaskModal from "../../components/NewTaskModal";
+import { Spinner, ErrorBanner, EmptyState } from "../../components/body/StateViews";
+import Header from "../../components/header/Header";
+import NewProjectModal from "../../components/body/NewProjectModal";
+import NewTaskModal from "../../components/body/NewTaskModal";
 
 const COLUMNS = [
   { key: "pending", label: "Pending", dot: "bg-gray-300" },

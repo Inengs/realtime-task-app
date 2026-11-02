@@ -3,10 +3,10 @@ import { useMemo, useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { useTasks, filterTasks } from "../../hooks/useTasks";
 import { useNotifications } from "../../contexts/NotificationContext";
-import { Spinner, ErrorBanner, EmptyState } from "../../components/StateViews";
-import Header from "../../components/Header";
-import NewTaskModal from "../../components/NewTaskModal";
-import UpcomingTasks from "../../components/UpcomingTasks";
+import { Spinner, ErrorBanner, EmptyState } from "../../components/body/StateViews";
+import Header from "../../components/header/Header";
+import NewTaskModal from "../../components/body/NewTaskModal";
+import UpcomingTasks from "../../components/body/UpcomingTasks";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 

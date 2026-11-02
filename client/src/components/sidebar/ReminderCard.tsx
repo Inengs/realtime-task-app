@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Reminder }  from "../types/reminder";
+import type { Reminder }  from "../../types/reminder";
 
 const iconProps = {
   width: 18,

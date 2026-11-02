@@ -4,12 +4,12 @@ import { useAuth } from "../../hooks/useAuth";
 import { useTasks, filterTasks } from "../../hooks/useTasks";
 import { useProjects } from "../../hooks/useProjects";
 import { useNotifications } from "../../contexts/NotificationContext";
-import { Spinner, ErrorBanner, EmptyState } from "../../components/StateViews";
-import ActiveProjects from "../../components/ActiveProjects";
-import UpcomingTasks from "../../components/UpcomingTasks";
-import NewProjectModal from "../../components/NewProjectModal";
-import NewTaskModal from "../../components/NewTaskModal";
-import Header from "../../components/Header";
+import { Spinner, ErrorBanner, EmptyState } from "../../components/body/StateViews";
+import ActiveProjects from "../../components/body/ActiveProjects";
+import UpcomingTasks from "../../components/body/UpcomingTasks";
+import NewProjectModal from "../../components/body/NewProjectModal";
+import NewTaskModal from "../../components/body/NewTaskModal";
+import Header from "../../components/header/Header";
 
 /* ---------- helpers ---------- */
 const getGreeting = () => {

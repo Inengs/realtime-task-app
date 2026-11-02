@@ -1,6 +1,11 @@
 import { useLocation } from "react-router-dom";
 import SearchBar from "./SearchBar";
-import { routes } from "../config/routes";
+import { routes } from "../../config/routes";
+import SettingsIconButton from "./SettingsIconButton";
+import InfoIconButton from "./InfoIconButton";
+import MessagesIconButton from "./MessageIconButton";
+import NotificationsIconButton from "./NotificationsIconButton";
+import ProfileDropdown from "./ProfileDropdown";
 
 export default function Header() {
   const location = useLocation();
@@ -29,6 +34,17 @@ export default function Header() {
       </div>
 
       {/* RIGHT: icons + profile will go here later */}
+      <div className="flex items-center gap-1">
+        <InfoIconButton />
+        <MessagesIconButton />
+        <SettingsIconButton />
+        <NotificationsIconButton />
+
+        {/* Divider between icons and profile */}
+        <div className="w-px h-6 bg-gray-200 mx-2" />
+
+        <ProfileDropdown />
+      </div>
     </header>
   );
 }

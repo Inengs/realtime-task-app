@@ -1,14 +1,14 @@
 export interface RouteConfig {
   path: string;
-  label: string;        // sidebar label
-  title: string;        // header title (can differ from label)
-  description: string; // header subtitle
+  label: string;
+  title: string;
+  description: string;
   icon: string;
-  section: "main" | "team";
+  section: "main" | "team" | "account";
 }
 
 export const routes: RouteConfig[] = [
-  // Main Menu
+  // ─── Main Menu — the actual work ───
   {
     path: "/dashboard",
     label: "Dashboard",
@@ -58,12 +58,12 @@ export const routes: RouteConfig[] = [
     section: "main",
   },
 
-  // Team
+  // ─── Team — collaboration & people ───
   {
-    path: "/employees",
-    label: "Employees",
-    title: "Employees",
-    description: "Manage your team members, roles, and responsibilities",
+    path: "/members",
+    label: "Members",
+    title: "Members",
+    description: "Manage who's in your workspace and what they can access",
     icon: "users",
     section: "team",
   },
@@ -71,25 +71,43 @@ export const routes: RouteConfig[] = [
     path: "/teams",
     label: "Teams",
     title: "Teams",
-    description: "Organize employees into teams and assign project ownership",
+    description: "Organize members into teams and assign project ownership",
     icon: "users",
     section: "team",
   },
   {
-    path: "/recruitment",
-    label: "Recruitment and Hiring",
-    title: "Recruitment & Hiring",
-    description: "Track candidates, interviews, and hiring pipelines",
-    icon: "user-plus",
+    path: "/activity",
+    label: "Activity Log",
+    title: "Activity Log",
+    description: "See every change across your workspace in real time",
+    icon: "activity",
     section: "team",
   },
+
+  // ─── Account — header-only routes (not in sidebar) ───
   {
-    path: "/invoices",
-    label: "Invoices and Billing",
-    title: "Invoices & Billing",
-    description: "View, generate, and manage client invoices and payments",
-    icon: "file-text",
-    section: "team",
+    path: "/settings",
+    label: "Settings",
+    title: "Settings",
+    description: "Manage your account preferences and configuration",
+    icon: "settings",
+    section: "account",
+  },
+  {
+    path: "/messages",
+    label: "Messages",
+    title: "Messages",
+    description: "View and manage your conversations with team members",
+    icon: "message-square",
+    section: "account",
+  },
+  {
+    path: "/notifications",
+    label: "Notifications",
+    title: "Notifications",
+    description: "Stay updated on activity across your projects and tasks",
+    icon: "bell",
+    section: "account",
   },
 ];
 

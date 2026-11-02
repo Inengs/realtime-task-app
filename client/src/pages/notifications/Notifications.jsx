@@ -1,7 +1,7 @@
 // Notifications.jsx
 import { useState } from "react";
 import { useNotifications } from "../../contexts/NotificationContext";
-import Header from "../../components/Header";
+import Header from "../../components/header/Header";
 import { useAuth } from "../../contexts/AuthContext";
 
 // API fields are snake_case (is_read, created_at); camelCase kept as a fallback

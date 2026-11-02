@@ -1,7 +1,7 @@
 import logo from "../assets/images/logo-2.svg"
 import { NavLink } from "react-router-dom"
 import ReminderCard from "./ReminderCard"
-import { mainMenu, teamMenu, type RouteConfig } from "../config/routes"   
+import { mainMenu, teamMenu, type RouteConfig } from "../../config/routes"   
 
 // const MainMenu = [
 //     {to: "/dashboard", icon: "home", label: "Dashboard"},

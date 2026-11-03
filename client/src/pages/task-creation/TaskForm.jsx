@@ -4,7 +4,6 @@ import { useAuth } from "../../hooks/useAuth";
 import { useTasks, filterTasks } from "../../hooks/useTasks";
 import { useNotifications } from "../../contexts/NotificationContext";
 import { Spinner, ErrorBanner, EmptyState } from "../../components/body/StateViews";
-import Header from "../../components/header/Header";
 import NewTaskModal from "../../components/body/NewTaskModal";
 import UpcomingTasks from "../../components/body/UpcomingTasks";
 
@@ -120,13 +119,6 @@ function TaskPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header
-        unreadCount={unreadCount}
-        onSearchChange={setSearchQuery}
-        user={user}
-        searchQuery={searchQuery}
-      />
-
       <main className="pt-24 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
         {error && (
           <div className="mb-6">

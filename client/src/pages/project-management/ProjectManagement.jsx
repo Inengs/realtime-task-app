@@ -5,7 +5,7 @@ import { useTasks } from "../../hooks/useTasks";
 import { useProjects, projectId, projectName } from "../../hooks/useProjects";
 import { useNotifications } from "../../contexts/NotificationContext";
 import { Spinner, ErrorBanner, EmptyState } from "../../components/body/StateViews";
-import Header from "../../components/header/Header";
+
 import NewProjectModal from "../../components/body/NewProjectModal";
 import NewTaskModal from "../../components/body/NewTaskModal";
 
@@ -68,12 +68,6 @@ export default function ProjectManagement() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header
-        unreadCount={unreadCount}
-        onSearchChange={setSearchQuery}
-        searchQuery={searchQuery}
-        user={user}
-      />
 
       <main className="pt-24 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
         <div className="flex items-center justify-between gap-4">

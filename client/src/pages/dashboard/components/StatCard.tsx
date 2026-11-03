@@ -1,7 +1,7 @@
+import { useNavigate } from "react-router-dom";
 import { List, Loader2, CheckCircle2, AlertCircle, TrendingUp, TrendingDown } from "lucide-react";
 import type { StatItem } from "../../../mocks/dashboard";
 
-// Map icon string → actual Lucide component
 const iconMap = {
   list: List,
   loader: Loader2,
@@ -9,7 +9,6 @@ const iconMap = {
   "alert-circle": AlertCircle,
 };
 
-// Map stat id → subtle color theme (background + icon tint)
 const themeMap = {
   total:        { bg: "bg-blue-50",    text: "text-blue-600"    },
   "in-progress": { bg: "bg-purple-50",  text: "text-purple-600"  },
@@ -17,14 +16,26 @@ const themeMap = {
   overdue:      { bg: "bg-red-50",     text: "text-red-600"     },
 };
 
+// Where each card navigates to
+const routeMap = {
+  total:        "/tasks",
+  "in-progress": "/tasks?status=in-progress",
+  completed:    "/tasks?status=completed",
+  overdue:      "/tasks?status=overdue",
+};
+
 export default function StatCard({ stat }: { stat: StatItem }) {
+  const navigate = useNavigate();
   const Icon = iconMap[stat.icon];
   const theme = themeMap[stat.id];
   const TrendIcon = stat.trend === "up" ? TrendingUp : TrendingDown;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-sm transition-shadow">
-      {/* Top row: icon + label */}
+    <button
+      onClick={() => navigate(routeMap[stat.id])}
+      className="text-left bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md hover:border-gray-300 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500"
+    >
+      {/* Top row */}
       <div className="flex items-center justify-between mb-4">
         <div className={`flex items-center justify-center w-10 h-10 rounded-lg ${theme.bg}`}>
           <Icon className={`w-5 h-5 ${theme.text}`} />
@@ -32,7 +43,7 @@ export default function StatCard({ stat }: { stat: StatItem }) {
         <span className="text-sm text-gray-500">{stat.label}</span>
       </div>
 
-      {/* Big number */}
+      {/* Number */}
       <div className="flex items-baseline gap-2 mb-2">
         <span className="text-3xl font-semibold text-gray-900 tabular-nums">
           {stat.value}
@@ -40,7 +51,7 @@ export default function StatCard({ stat }: { stat: StatItem }) {
         <span className="text-xs text-gray-400">tasks</span>
       </div>
 
-      {/* Trend badge */}
+      {/* Trend */}
       <div className="flex items-center gap-1.5">
         <span
           className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${
@@ -54,6 +65,6 @@ export default function StatCard({ stat }: { stat: StatItem }) {
         </span>
         <span className="text-xs text-gray-400">vs last month</span>
       </div>
-    </div>
+    </button>
   );
 }

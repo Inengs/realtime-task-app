@@ -153,3 +153,5 @@ Planned: GitHub Actions CI/CD (test → build → SSH deploy) and CloudWatch ala
 - [ ] GitHub Actions CI/CD pipeline
 - [ ] CloudWatch monitoring and alerting
 - [ ] Multi-instance WebSocket fan-out via Redis pub/sub
+
+made by Inengiye Emmanuel

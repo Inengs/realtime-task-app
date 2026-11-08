@@ -17,6 +17,7 @@ import (
 	"github.com/Inengs/realtime-task-app/models"
 	"github.com/Inengs/realtime-task-app/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/sessions"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -332,6 +333,16 @@ func LoginFunc(c *gin.Context) {
 	if err != nil {
 		log.Printf("login: ignoring invalid session cookie: %v", err)
 	}
+
+	// Set cross-origin cookie options
+	session.Options = &sessions.Options{
+		Path:     "/",
+		Domain:   ".inengiyeemmanuel.site", // leading dot = all subdomains
+		MaxAge:   86400 * 7,                // 7 days
+		HttpOnly: true,
+		Secure:   true,                  // required for HTTPS
+		SameSite: http.SameSiteNoneMode, // required for cross-origin
+	}
 	// Store user_id in session
 	session.Values["user_id"] = userID
 	// Save session and set cookie
@@ -376,7 +387,14 @@ func LogoutFunc(c *gin.Context) {
 	// Remove all session data
 	session.Values = make(map[interface{}]interface{})
 	// Set MaxAge to -1 to delete the session cookie
-	session.Options.MaxAge = -1
+	session.Options = &sessions.Options{
+		Path:     "/",
+		Domain:   ".inengiyeemmanuel.site",
+		MaxAge:   -1, // delete
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
+	}
 	// Save session to persist changes and delete cookie
 	err = session.Save(c.Request, c.Writer)
 	if err != nil {

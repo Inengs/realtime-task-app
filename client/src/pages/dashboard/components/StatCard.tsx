@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { List, Loader2, CheckCircle2, AlertCircle, TrendingUp, TrendingDown } from "lucide-react";
-import type { StatItem } from "../../../mocks/dashboard";
+import type { StatItem } from "../../../types/dashboard";
 
 const iconMap = {
   list: List,

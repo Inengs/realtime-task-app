@@ -1,15 +1,8 @@
 // Mock data for the dashboard. Later, swap these for real API calls
 // by replacing `import { stats } from "../mocks/dashboard"` with
 // `const stats = await getStats()` inside a custom hook.
+import { StatItem } from "../types/dashboard";
 
-export interface StatItem {
-  id: "total" | "in-progress" | "completed" | "overdue";
-  label: string;
-  value: number;
-  delta: number;       // percentage change vs last period
-  trend: "up" | "down"; // direction of change
-  icon: "list" | "loader" | "check-circle" | "alert-circle";
-}
 
 export const stats: StatItem[] = [
   {

@@ -16,3 +16,12 @@ export interface TaskUserBrief {
   username: string;
   avatar_url: string;
 }
+
+export interface StatItem {
+  id: "total" | "in-progress" | "completed" | "overdue";
+  label: string;
+  value: number;
+  delta: number;       // percentage change vs last period
+  trend: "up" | "down"; // direction of change
+  icon: "list" | "loader" | "check-circle" | "alert-circle";
+}

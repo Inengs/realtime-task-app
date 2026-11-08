@@ -13,6 +13,7 @@ package main
 
 import (
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -82,6 +83,20 @@ func main() {
 	if middleware.Store == nil {
 		log.Fatalf("Failed to initialize session store")
 	}
+
+	var handler slog.Handler
+	if os.Getenv("GIN_MODE") == "release" {
+		// Production: structured JSON → Promtail → Loki → Grafana
+		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		})
+	} else {
+		// Development: readable text output for terminal
+		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelDebug, // show debug logs in dev
+		})
+	}
+	slog.SetDefault(slog.New(handler))
 
 	// Serve Swagger docs — publicly accessible
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

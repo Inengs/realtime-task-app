@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"database/sql"
+	"log/slog"
 	"net/http"
 
 	"github.com/Inengs/realtime-task-app/models"
@@ -15,6 +16,10 @@ func GetDashboardStats(c *gin.Context) {
 	// Get User ID from session
 	userID, exists := c.Get("userID")
 	if !exists {
+		slog.Warn("Unauthorized dashboard access attempt",
+			"endpoint", "/dashboard/stats",
+			"ip", c.ClientIP(),
+		)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
@@ -30,6 +35,10 @@ func GetDashboardStats(c *gin.Context) {
 	WHERE user_id = &1	
 	`, uid).Scan(&stats.Total, &stats.InProgress, &stats.Completed, &stats.Overdue)
 	if err != nil {
+        slog.Error("Failed to query dashboard stats",
+            "user_id", uid,
+            "error", err.Error(),
+        )
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load stats"})
 	}
 
@@ -55,6 +64,10 @@ func GetDashboardStats(c *gin.Context) {
     `, uid).Scan(&previousStats.Total, &previousStats.InProgress, &previousStats.Completed, &previousStats.Overdue)
 	if err != nil {
 		// Don't fail the request if delta query fails — just return zeros
+        slog.Warn("Delta query failed, returning zeros",
+            "user_id", uid,
+            "error", err.Error(),
+        )
 		stats.Deltas = models.DeltaMap{}
 	} else {
 		stats.Deltas = models.DeltaMap{
@@ -64,6 +77,14 @@ func GetDashboardStats(c *gin.Context) {
 			Overdue:    computeDelta(previousStats.Overdue, stats.Overdue),
 		}
 	}
+
+    slog.Info("Dashboard stats loaded",
+        "user_id", uid,
+        "total", stats.Total,
+        "in_progress", stats.InProgress,
+        "completed", stats.Completed,
+        "overdue", stats.Overdue,
+    )
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Stats loaded",

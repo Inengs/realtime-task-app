@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func TaskAuthRoutes(router *gin.Engine) {
+func TaskRoutes(router *gin.Engine) {
 	tasks := router.Group("/tasks", middleware.AuthMiddleware())
 	{
 		tasks.GET("/", controllers.TaskListFunc)

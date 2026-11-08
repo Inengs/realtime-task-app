@@ -1,6 +1,6 @@
 // NewProjectModal.jsx
 import { useState } from "react";
-import api from "../../services/api";
+import api from "../../axios/api";
 
 export default function NewProjectModal({ onClose, onCreated }) {
   const [name, setName] = useState("");

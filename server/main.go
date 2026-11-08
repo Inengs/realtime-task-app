@@ -103,11 +103,12 @@ func main() {
 
 	// Register routes
 	routes.RegisterAuthRoutes(router)
-	routes.UserAuthRoutes(router)
-	routes.TaskAuthRoutes(router)
-	routes.ProjectAuthRoutes(router)
-	routes.WsAuthRoutes(router)
-	routes.NotificationsAuthRoutes(router)
+	routes.UserRoutes(router)
+	routes.TaskRoutes(router)
+	routes.ProjectRoutes(router)
+	routes.WsRoutes(router)
+	routes.NotificationRoutes(router)
+	routes.DashboardRoutes(router)
 
 	// Set trusted proxies
 	if err := router.SetTrustedProxies([]string{"127.0.0.1"}); err != nil {

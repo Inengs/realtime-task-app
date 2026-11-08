@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-import api from "../../services/api";
+import api from "../../axios/api";
 
 /* ------------------------------------------------------------------ */
 /*  Inline SVG icons (no external deps)                                */

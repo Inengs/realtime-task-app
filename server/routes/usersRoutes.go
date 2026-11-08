@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func UserAuthRoutes(router *gin.Engine) {
+func UserRoutes(router *gin.Engine) {
 	users := router.Group("/users")
 	{
 		users.GET("/", middleware.AuthMiddleware(), controllers.UserListFunc)

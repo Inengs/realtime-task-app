@@ -1,7 +1,7 @@
 // EmailVerification.jsx
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import api from "../../services/api";
+import api from "../../axios/api";
 
 const EnvelopeGraphic = () => (
   <div className="relative w-28 h-28 mx-auto mb-6">

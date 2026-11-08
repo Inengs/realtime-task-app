@@ -4,7 +4,7 @@
 // ASSUMPTION: REST routes are POST <base>, PUT <base><id>, DELETE <base><id>.
 // Check them against your Go router and adjust `updateMethod` / paths if they differ.
 import { useCallback } from "react";
-import api from "../services/api";
+import api from "../axios/api";
 
 export function useCrud(basePath, { data, setData, reload, idOf = (x) => x.id, updateMethod = "put" }) {
   const create = useCallback(

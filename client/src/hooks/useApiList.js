@@ -1,6 +1,6 @@
 // src/hooks/useApiList.js
 import { useCallback, useEffect, useState } from "react";
-import api from "../services/api";
+import api from "../axios/api";
 
 // Go can return null for an empty list; always hand the UI an array.
 export const toArray = (data, key) =>

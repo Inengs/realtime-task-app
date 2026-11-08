@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func ProjectAuthRoutes(router *gin.Engine) {
+func ProjectRoutes(router *gin.Engine) {
 	projects := router.Group("/projects", middleware.AuthMiddleware())
 
 	{

@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func WsAuthRoutes(router *gin.Engine) {
+func WsRoutes(router *gin.Engine) {
 	ws := router.Group("/ws")
 	{
 		ws.GET("/notifications", middleware.AuthMiddleware(), controllers.WebSocketHandler)

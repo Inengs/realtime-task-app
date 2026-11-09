@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"database/sql"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -13,8 +14,8 @@ func GetDashboardStats(c *gin.Context) {
 	// Implementation for fetching dashboard statistics
 	db := c.MustGet("db").(*sql.DB)
 
-	// Get User ID from session
-	userID, exists := c.Get("userID")
+	// AuthMiddleware already validated the JWT and set user_id in context
+	userID, exists := c.Get("user_id")
 	if !exists {
 		slog.Warn("Unauthorized dashboard access attempt",
 			"endpoint", "/dashboard/stats",
@@ -23,8 +24,15 @@ func GetDashboardStats(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
-
-	uid := userID.(int) // Convert to int
+	uid, ok := userID.(int)
+	if !ok {
+		slog.Error("user_id in context is not an int",
+			"type", fmt.Sprintf("%T", userID),
+			"endpoint", "/dashboard/stats",
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
 
 	var stats models.DashboardStats
 	err := db.QueryRow(`SELECT COUNT(*), 
@@ -35,10 +43,10 @@ func GetDashboardStats(c *gin.Context) {
 	WHERE user_id = &1	
 	`, uid).Scan(&stats.Total, &stats.InProgress, &stats.Completed, &stats.Overdue)
 	if err != nil {
-        slog.Error("Failed to query dashboard stats",
-            "user_id", uid,
-            "error", err.Error(),
-        )
+		slog.Error("Failed to query dashboard stats",
+			"user_id", uid,
+			"error", err.Error(),
+		)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load stats"})
 	}
 
@@ -64,10 +72,10 @@ func GetDashboardStats(c *gin.Context) {
     `, uid).Scan(&previousStats.Total, &previousStats.InProgress, &previousStats.Completed, &previousStats.Overdue)
 	if err != nil {
 		// Don't fail the request if delta query fails — just return zeros
-        slog.Warn("Delta query failed, returning zeros",
-            "user_id", uid,
-            "error", err.Error(),
-        )
+		slog.Warn("Delta query failed, returning zeros",
+			"user_id", uid,
+			"error", err.Error(),
+		)
 		stats.Deltas = models.DeltaMap{}
 	} else {
 		stats.Deltas = models.DeltaMap{
@@ -78,13 +86,13 @@ func GetDashboardStats(c *gin.Context) {
 		}
 	}
 
-    slog.Info("Dashboard stats loaded",
-        "user_id", uid,
-        "total", stats.Total,
-        "in_progress", stats.InProgress,
-        "completed", stats.Completed,
-        "overdue", stats.Overdue,
-    )
+	slog.Info("Dashboard stats loaded",
+		"user_id", uid,
+		"total", stats.Total,
+		"in_progress", stats.InProgress,
+		"completed", stats.Completed,
+		"overdue", stats.Overdue,
+	)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Stats loaded",

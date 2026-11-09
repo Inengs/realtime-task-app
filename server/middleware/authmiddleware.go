@@ -1,35 +1,52 @@
 package middleware
 
 import (
+	"log/slog"
 	"net/http"
+	"strings"
 
+	"github.com/Inengs/realtime-task-app/utils"
 	"github.com/gin-gonic/gin"
 )
 
-// AuthMiddleware checks for a valid session
+// AuthMiddleware validates a JWT from the Authorization header.
+//
+// Expected header format:
+//
+//	Authorization: Bearer <token>
+//
+// If valid, attaches user_id to the Gin context so downstream handlers
+// can access it via c.Get("user_id").
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Get session from request using the same session name as in routes
-		session, err := Store.Get(c.Request, "auth-session")
+		// ─── Step 1: Extract the Authorization header ───
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.Next()
+			return
+		}
+
+		// validates 2 parts: Bearer and eyJhbG...
+		parts := strings.Split(authHeader, " ")
+		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+			c.Next()
+			return
+		}
+
+		// validates JWT signature, checks expiry, extracts the user_id
+		userID, err := utils.ParseAuthToken(parts[1])
 		if err != nil {
-			// Return 500 if session store fails
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Session error"})
-			c.Abort()
-			return
-		}
-		// Check if user_id exists in session to verify authentication
-		if userID, ok := session.Values["user_id"]; !ok || userID == nil {
-			// Return 401 if no valid session exists
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-			c.Abort()
+			// logs the failure
+			slog.Warn("invalid JWT",
+				"endpoint", c.Request.URL.Path,
+				"error", err.Error(),
+				"ip", c.ClientIP(),
+			)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 			return
 		}
 
-		// Set user_id in Gin context for access in downstream handlers
-		c.Set("user_id", session.Values["user_id"])
-
-		// go to next handler
+		c.Set("user_id", userID) // on success, store the user id in Gins context
 		c.Next()
-
 	}
 }

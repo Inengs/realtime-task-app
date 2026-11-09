@@ -3,21 +3,16 @@ package controllers
 import (
 	"database/sql"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"regexp"
-	"time"
-
-	// "regexp"
 	"strings"
+	"time"
 	"unicode"
 
-	_ "github.com/Inengs/realtime-task-app/db"
-	"github.com/Inengs/realtime-task-app/middleware"
 	"github.com/Inengs/realtime-task-app/models"
 	"github.com/Inengs/realtime-task-app/utils"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/sessions"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -27,105 +22,78 @@ type User struct {
 	Password string `json:"password" binding:"required,min=6,max=32"`
 }
 
-// LoginRequest defines the structure for login payload
 type LoginRequest struct {
 	Email    string `json:"email" binding:"required"`
 	Password string `json:"password" binding:"required,min=6,max=32"`
 }
 
-// SanitizeInput removes control characters and trims whitespace
 func SanitizeInput(input string) string {
-	// Remove control characters (ASCII 0-31, except allowed ones like tab)
-	var sanitized strings.Builder
+	var sanitized strings.Builder // build a string that will be the sanitized string
 	for _, r := range input {
 		if !unicode.IsControl(r) || r == '\t' {
+			// if the character is not a control character, tab is allowed though
 			sanitized.WriteRune(r)
 		}
 	}
-	// Trim leading and trailing whitespace
 	return strings.TrimSpace(sanitized.String())
 }
 
-// SanitizeUsername ensures only alphanumeric, underscore, and hyphen are allowed
 func SanitizeUsername(username string) (string, error) {
-	sanitized := SanitizeInput(username)
-	// Allow only alphanumeric, underscore, and hyphen
-	usernameRe := regexp.MustCompile(`[^a-zA-Z0-9_-]`)
-	sanitized = usernameRe.ReplaceAllString(sanitized, "")
+	sanitized := SanitizeInput(username)                   // sanitize the username input
+	usernameRe := regexp.MustCompile(`[^a-zA-Z0-9_-]`)     // strips out any charater that is not part of the espression
+	sanitized = usernameRe.ReplaceAllString(sanitized, "") // replace them with empty strings
 	if len(sanitized) < 3 || len(sanitized) > 20 {
 		return "", errors.New("username length must be between 3 and 20 characters")
 	}
-	return sanitized, nil
+	return sanitized, nil // return sanitized user name
 }
 
-// SanitizeEmail normalizes email to lowercase and removes invalid characters
 func SanitizeEmail(email string) (string, error) {
-	// Normalize to lowercase
 	sanitized := SanitizeInput(strings.ToLower(email))
-	// Basic check for email-like structure
 	if !strings.Contains(sanitized, "@") || !strings.Contains(sanitized, ".") {
 		return "", errors.New("invalid email format")
 	}
 	return sanitized, nil
 }
 
-// RegisterFunc creates a new user account
-//
-//	@Summary		Register a new user
-//	@Description	Creates an unverified account and emails a verification link. Rate-limited.
-//	@Tags			auth
-//	@Accept			json
-//	@Produce		json
-//	@Param			request	body		controllers.User	true	"Registration details"
-//	@Success		201		{object}	map[string]any		"user_id + message"
-//	@Failure		400		{object}	map[string]any		"Invalid input"
-//	@Failure		409		{object}	map[string]any		"Username or email taken"
-//	@Router			/auth/register [post]
 func RegisterFunc(c *gin.Context) {
-	// Get database connection
 	db := c.MustGet("db").(*sql.DB)
 
-	// REQUEST BODY EXTRACTION
-	var user User
+	var user User // creates an empty User struct
 	if err := c.ShouldBindJSON(&user); err != nil {
+		// reads the json body and fills the struct, if it fails return error
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// INPUT SANITIZATION
-	var err error
+	// cleans up the username the user sent
+	var err error // used to hold any error
 	user.Username, err = SanitizeUsername(user.Username)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	// cleans up the email
 	user.Email, err = SanitizeEmail(user.Email)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	user.Email = strings.ToLower(strings.TrimSpace(user.Email))
+
+	// cleans up the password
 	user.Password = SanitizeInput(user.Password)
 	if len(user.Password) < 6 || len(user.Password) > 32 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "password length must be between 6 and 32 characters"})
 		return
 	}
 
-	// // INPUT VALIDATION
-	// validate := validator.New()
-	// validate.RegisterValidation("customEmail", ValidateEmail)
-	// if err := validate.Struct(user); err != nil {
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input format"})
-	// 	return
-	// }
-
-	// DUPLICATE USER CHECK
+	// checks if a username is taken, if the query fails return 500, if it is already taken return 409
 	var exists bool
-	query := `SELECT EXISTS (SELECT 1 FROM users WHERE username=$1)`
-	err = db.QueryRow(query, user.Username).Scan(&exists)
-	if err != nil {
-		log.Printf("Username check error: %v", err)
+	if err := db.QueryRow(`SELECT EXISTS (SELECT 1 FROM users WHERE username=$1)`, user.Username).Scan(&exists); err != nil {
+		slog.Error("Username check failed", "error", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
@@ -134,11 +102,8 @@ func RegisterFunc(c *gin.Context) {
 		return
 	}
 
-	// Check for duplicate email
-	query = `SELECT EXISTS (SELECT 1 FROM users WHERE email=$1)`
-	err = db.QueryRow(query, user.Email).Scan(&exists)
-	if err != nil {
-		log.Printf("Email check error: %v", err)
+	if err := db.QueryRow(`SELECT EXISTS (SELECT 1 FROM users WHERE email=$1)`, user.Email).Scan(&exists); err != nil {
+		slog.Error("Email check failed", "error", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
@@ -147,341 +112,213 @@ func RegisterFunc(c *gin.Context) {
 		return
 	}
 
-	// HASH PASSWORD
+	// turns the plain password into a secure hash, so you never store the real password.
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
-		log.Printf("Password hash error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not hash password"})
+		slog.Error("Password hash failed", "error", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not hash password"}) // if hashing fails, log 500 error
 		return
 	}
 
-	token, err := utils.GenerateVerificationToken()
+	token, err := utils.GenerateVerificationToken() // creates a random token, sends to the user to verify their email
 	if err != nil {
-		log.Printf("Token generation error: %v", err)
+		slog.Error("Verification token generation failed", "error", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not generate verification token"})
 		return
 	}
 
-	expiry := time.Now().Add(24 * time.Hour)
+	expiry := time.Now().Add(24 * time.Hour) // verification token lasts for a day
 
-	// INSERT USER
-	var userID int
+	var userID int // holds the new user's id
+	// save the user
 	err = db.QueryRow(
-		`INSERT INTO users (username, email, password, verification_token, verification_token_expiry) 
-     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+		`INSERT INTO users (username, email, password, verification_token, verification_token_expiry)
+         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
 		user.Username, user.Email, string(hashedPassword), token, expiry,
 	).Scan(&userID)
 	if err != nil {
-		log.Printf("User insert error: %v", err)
+		slog.Error("User insert failed", "error", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 		return
 	}
 
+	// send verification email after the user has been saved
 	if err := utils.SendVerificationEmail(user.Email, token); err != nil {
-		log.Printf("Email sending error: %v", err)
+		slog.Error("Verification email failed", "email", user.Email, "error", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send verification email"})
 		return
 	}
 
-	// SUCCESS RESPONSE
+	// SUCCESS
+	slog.Info("User registered", "user_id", userID, "email", user.Email)
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "User registered. Please check your email to verify your account.",
 		"user_id": userID,
 	})
 }
 
+// ─── VerifyEmail (unchanged) ───────────────────────────
 func VerifyEmail(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB)
-	token := c.Query("token")
-
-	log.Printf("Verification attempt with token: %s", token) // ✅ Add logging
+	token := c.Query("token") // get token from request url
 
 	if token == "" {
+		// if token is empty return 400
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Token is required"})
 		return
 	}
 
-	// Step 1: Fetch expiry time for this token
 	var expiry time.Time
-	err := db.QueryRow(`
-		SELECT verification_token_expiry 
-		FROM users 
-		WHERE verification_token = $1
-	`, token).Scan(&expiry)
-
+	// look up the user by their verification token and get the tokens expiry time
+	err := db.QueryRow(`SELECT verification_token_expiry FROM users WHERE verification_token = $1`, token).Scan(&expiry)
 	if err == sql.ErrNoRows {
-		// Token doesn't exist
-		log.Printf("Token not found: %s", token)
+		slog.Warn("Verification token not found", "token", token)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Invalid token"})
 		return
 	}
 	if err != nil {
-		// DB error
-		log.Printf("Database error on token lookup: %v", err) // ✅ Add logging
+		slog.Error("DB error on token lookup", "error", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 
-	// Step 2: Check if token expired
+	// if it has expired, return bad request 400
 	if time.Now().After(expiry) {
-		log.Printf("Token expired: %s (expiry: %v)", token, expiry) // ✅ Add logging
+		slog.Warn("Verification token expired", "token", token, "expiry", expiry)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Token expired"})
 		return
 	}
 
-	// Step 3: Update user to verified and clear token + expiry
-	result, err := db.Exec(`
-		UPDATE users 
-		SET verified = TRUE, verification_token = NULL, verification_token_expiry = NULL 
-		WHERE verification_token = $1
-	`, token)
+	// mark user as verified
+	result, err := db.Exec(`UPDATE users SET verified = TRUE, verification_token = NULL, verification_token_expiry = NULL WHERE verification_token = $1`, token)
 	if err != nil {
-		log.Printf("Database error on update: %v", err) // ✅ Add logging
+		slog.Error("DB error on user update", "error", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 
-	rowsAffected, _ := result.RowsAffected()
-	if rowsAffected == 0 {
-		// Shouldn't happen because we already checked existence
-		log.Printf("No rows affected for token: %s", token) // ✅ Add logging
+	// check if the row was actually updated
+	if rows, _ := result.RowsAffected(); rows == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Invalid or expired token"})
 		return
 	}
 
-	// Step 4: Success
-	log.Printf("Email verified successfully for token: %s", token) // ✅ Add logging
+	slog.Info("Email verified", "token", token)
 	c.JSON(http.StatusOK, gin.H{"message": "Email verified successfully!"})
 }
 
-// LoginFunc authenticates a user and sets the session cookie
-//
-//	@Summary		Log in
-//	@Description	Verifies credentials, starts a session (HTTP-only cookie).
-//	@Tags			auth
-//	@Accept			json
-//	@Produce		json
-//	@Param			request	body		controllers.LoginRequest	true	"Credentials"
-//	@Success		200		{object}	map[string]any				"message + user_id"
-//	@Failure		401		{object}	map[string]any
-//	@Failure		429		{object}	map[string]any
-//	@Router			/auth/login [post]
+// ─── LoginFunc (CHANGED — returns JWT instead of session cookie) ─
 func LoginFunc(c *gin.Context) {
-	// Get database connection from context
 	db := c.MustGet("db").(*sql.DB)
 
-	// Request Body extraction
 	var login LoginRequest
+	// bind the request to this login struct
 	if err := c.ShouldBindJSON(&login); err != nil {
-		// Return 400 if JSON payload is invalid
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
 		return
 	}
 
-	// INPUT SANITIZATION
 	var err error
-	// Sanitize email: remove control characters, normalize to lowercase
+	// sanitize the email
 	login.Email, err = SanitizeEmail(login.Email)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Sanitize password: remove control characters, preserve exact content
+	// sanitize the password
 	login.Password = SanitizeInput(login.Password)
 	if len(login.Password) < 6 || len(login.Password) > 32 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Password length must be between 6 and 32 characters"})
 		return
 	}
 
-	// // INPUT VALIDATION
-	// validate := validator.New()
-	// validate.RegisterValidation("customEmail", ValidateEmail)
-	// if err := validate.Struct(login); err != nil {
-	// 	// Return 400 if email format is invalid
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email format"})
-	// 	return
-	// }
-
-	// QUERY USER BY EMAIL
 	var userID int
 	var storedHash string
-	query := `SELECT id, password FROM users WHERE email=$1`
-	err = db.QueryRow(query, login.Email).Scan(&userID, &storedHash)
+	// find the user
+	err = db.QueryRow(`SELECT id, password FROM users WHERE email=$1`, login.Email).Scan(&userID, &storedHash)
+	// if not found, return 401
 	if err == sql.ErrNoRows {
-		// Return 401 for non-existent user or incorrect password to avoid information leakage
+		slog.Warn("Login failed — user not found", "email", login.Email, "ip", c.ClientIP())
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
 		return
 	}
 	if err != nil {
-		// Return 500 for database errors
+		slog.Error("DB error on login", "error", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 
-	// VERIFY PASSWORD
-	err = bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(login.Password))
-	if err != nil {
-		// Return 401 if password doesn't match
+	// compare the hash and the password
+	if err := bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(login.Password)); err != nil {
+		slog.Warn("Login failed — wrong password", "user_id", userID, "ip", c.ClientIP())
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
 		return
 	}
 
-	// Get returns a fresh, usable session even when the old cookie is invalid
-	// (e.g. SESSION_SECRET changed), so log it and carry on.
-	session, err := middleware.Store.Get(c.Request, "auth-session")
+	// ─── Generate JWT (replaces session cookie) ───
+	// this is to prove we have signed up, sent with future requests
+	jwtToken, err := utils.GenerateAuthToken(userID)
 	if err != nil {
-		log.Printf("login: ignoring invalid session cookie: %v", err)
-	}
-
-	// Set cross-origin cookie options
-	session.Options = &sessions.Options{
-		Path:     "/",
-		Domain:   ".inengiyeemmanuel.site", // leading dot = all subdomains
-		MaxAge:   86400 * 7,                // 7 days
-		HttpOnly: true,
-		Secure:   true,                  // required for HTTPS
-		SameSite: http.SameSiteNoneMode, // required for cross-origin
-	}
-	// Store user_id in session
-	session.Values["user_id"] = userID
-	// Save session and set cookie
-	err = session.Save(c.Request, c.Writer)
-	if err != nil {
-		log.Printf("login: session save failed: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save session"})
+		slog.Error("JWT generation failed", "user_id", userID, "error", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate auth token"})
 		return
 	}
 
-	// SUCCESS RESPONSE
-	// Return user ID and success message (no sensitive data like password)
-	c.JSON(http.StatusOK, gin.H{"message": "Login successful", "user_id": userID})
+	slog.Info("User logged in", "user_id", userID, "ip", c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Login successful",
+		"user_id": userID,
+		"token":   jwtToken,
+	})
 }
 
-// LogoutFunc clears the current session
-//
-//	@Summary	Log out
-//	@Tags		auth
-//	@Produce	json
-//	@Security	SessionCookie
-//	@Success	200	{object}	map[string]any
-//	@Failure	401	{object}	map[string]any
-//	@Router		/auth/logout [post]
+// ─── LogoutFunc (CHANGED — no session to clear, frontend deletes token) ─
+
 func LogoutFunc(c *gin.Context) {
-	// Get session from request
-	session, err := middleware.Store.Get(c.Request, "auth-session")
-	if err != nil {
-		// Return 500 if session store fails
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Session error"})
-		return
+	// With JWT, logout is purely a client-side action.
+	// The frontend deletes the token from localStorage.
+	// We log it for audit purposes if the user_id is in context (optional auth).
+	if userID, exists := c.Get("user_id"); exists {
+		slog.Info("User logged out", "user_id", userID, "ip", c.ClientIP())
 	}
-
-	// Check if user is authenticated
-	if _, ok := session.Values["user_id"]; !ok {
-		// Return 401 if no valid session exists
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not logged in"})
-		return
-	}
-
-	// CLEAR SESSION
-	// Remove all session data
-	session.Values = make(map[interface{}]interface{})
-	// Set MaxAge to -1 to delete the session cookie
-	session.Options = &sessions.Options{
-		Path:     "/",
-		Domain:   ".inengiyeemmanuel.site",
-		MaxAge:   -1, // delete
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteNoneMode,
-	}
-	// Save session to persist changes and delete cookie
-	err = session.Save(c.Request, c.Writer)
-	if err != nil {
-		// Return 500 if saving session fails
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear session"})
-		return
-	}
-
-	// SUCCESS RESPONSE
-	// Return 200 with confirmation message
 	c.JSON(http.StatusOK, gin.H{"message": "Logout successful"})
 }
 
-// MeFunc returns the currently authenticated user
-//
-//	@Summary	Current user
-//	@Tags		auth
-//	@Produce	json
-//	@Security	SessionCookie
-//	@Success	200	{object}	map[string]any	"message + user"
-//	@Failure	401	{object}	map[string]any
-//	@Router		/auth/me [get]
+// ─── MeFunc (CHANGED — reads user_id from context, not session) ───
 func MeFunc(c *gin.Context) {
-	// Get database connection from context
 	db := c.MustGet("db").(*sql.DB)
 
-	// Get session from request
-	session, err := middleware.Store.Get(c.Request, "auth-session")
-	if err != nil {
-		log.Printf("me: invalid session cookie: %v", err)
+	// AuthMiddleware already validated the JWT and set user_id in context
+	userID, exists := c.Get("user_id")
+	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
 		return
 	}
-	log.Printf("Session values: %v", session.Values)
+	uid := userID.(int)
 
-	// Get user_id from session (guaranteed by AuthMiddleware)
-	userID, ok := session.Values["user_id"].(int)
-
-	if !ok {
-		log.Printf("Failed to get user_id from session: value=%v, type=%T", session.Values["user_id"], session.Values["user_id"])
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
-		return
-	}
-
-	if userID == 0 {
-		log.Printf("user_id is 0, likely invalid session")
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
-		return
-	}
-	log.Printf("Retrieved user_id from session: %d", userID) // Debug: Log user_id
-
-	// Query user details from database
-	var user models.UserResponse
-	query := `SELECT id, username, email FROM users WHERE id=$1`
-	err = db.QueryRow(query, userID).Scan(&user.UserID, &user.Username, &user.Email)
+	var user models.UserResponse // struct to hold users data
+	// fetches user public data
+	err := db.QueryRow(`SELECT id, username, email FROM users WHERE id=$1`, uid).Scan(&user.UserID, &user.Username, &user.Email)
 	if err == sql.ErrNoRows {
-		log.Printf("User not found for user_id: %d", userID) // Debug: Log missing user
-		// Return 404 if user not found (handles edge cases like deleted users)
+		slog.Warn("User not found in DB", "user_id", uid)
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
 	if err != nil {
-		log.Printf("Database error for user_id %d: %v", userID, err) // Debug: Log database error
-		// Return 500 for database errors
+		slog.Error("DB error fetching user", "user_id", uid, "error", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 
-	// SUCCESS RESPONSE
-	// Return user details
-	log.Printf("Successfully retrieved user: id=%d, username=%s, email=%s", user.UserID, user.Username, user.Email) // Debug: Log user details
 	c.JSON(http.StatusOK, gin.H{"message": "User info retrieved", "user": user})
 }
 
-// ResendVerificationEmail resends the verification link
-//
-//	@Summary	Resend verification email
-//	@Tags		auth
-//	@Accept		json
-//	@Produce	json
-//	@Param		request	body		object	true	"{ \"email\": \"...\" }"
-//	@Success	200		{object}	map[string]any
-//	@Router		/auth/resend-verification [post]
 func ResendVerificationEmail(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB)
 
-	// Get email from request body
+	// we only collect their email, so that it can be resent
 	var input struct {
 		Email string `json:"email" binding:"required,email"`
 	}
@@ -490,65 +327,61 @@ func ResendVerificationEmail(c *gin.Context) {
 		return
 	}
 
-	// Sanitize email
+	// sanitize the email
 	email, err := SanitizeEmail(input.Email)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email format"})
 		return
 	}
 
-	// Check if user exists and is not verified
+	// looks up a user for  resend verification email feature
 	var userID int
 	var verified bool
 	var currentToken sql.NullString
-	err = db.QueryRow(
-		`SELECT id, verified, verification_token FROM users WHERE email = $1`,
-		email,
-	).Scan(&userID, &verified, &currentToken)
+	err = db.QueryRow(`SELECT id, verified, verification_token FROM users WHERE email = $1`, email).Scan(&userID, &verified, &currentToken)
 
+	// if the email exists. the email is sent
 	if err == sql.ErrNoRows {
-		// Don't reveal if user exists (security)
 		c.JSON(http.StatusOK, gin.H{"message": "If the email exists, a verification link has been sent."})
 		return
 	}
+
+	// return 500, if any error occurs
 	if err != nil {
-		log.Printf("Database error: %v", err)
+		slog.Error("DB error on resend verification", "error", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 
-	// If already verified
+	// if already verified, return 400
 	if verified {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Email is already verified"})
 		return
 	}
 
-	// Generate new token
+	// regenerate new token
 	token, err := utils.GenerateVerificationToken()
 	if err != nil {
-		log.Printf("Token generation error: %v", err)
+		// if it dails return error
+		slog.Error("Token generation failed", "error", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
 
-	// Update token and expiry
+	// set expiry to a day
 	expiry := time.Now().Add(24 * time.Hour)
-	_, err = db.Exec(
-		`UPDATE users SET verification_token = $1, verification_token_expiry = $2 WHERE id = $3`,
-		token, expiry, userID,
-	)
-	if err != nil {
-		log.Printf("Token update error: %v", err)
+	if _, err := db.Exec(`UPDATE users SET verification_token = $1, verification_token_expiry = $2 WHERE id = $3`, token, expiry, userID); err != nil {
+		slog.Error("Token update failed", "error", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 
-	// Send email
 	if err := utils.SendVerificationEmail(email, token); err != nil {
-		log.Printf("Email sending error: %v", err)
+		slog.Error("Email send failed", "email", email, "error", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send verification email"})
 		return
 	}
 
+	slog.Info("Verification email resent", "user_id", userID, "email", email)
 	c.JSON(http.StatusOK, gin.H{"message": "Verification email resent successfully"})
 }

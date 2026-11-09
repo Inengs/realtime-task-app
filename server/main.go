@@ -33,6 +33,7 @@ import (
 func validateEnv() {
 	required := []string{
 		"SESSION_SECRET",
+		"JWT_SECRET",
 		"EMAIL_FROM",
 		"EMAIL_USERNAME",
 		"EMAIL_PASSWORD",

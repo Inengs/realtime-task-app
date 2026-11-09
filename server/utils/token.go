@@ -32,11 +32,7 @@ type JWTClaims struct {
 // getJWTSecret reads the secret from env (falls back to a dev secret).
 // In production, JWT_SECRET must be set — main.go's validateEnv() enforces this.
 func getJWTSecret() []byte {
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		return []byte("dev-secret-change-me")
-	}
-	return []byte(secret)
+	return []byte(os.Getenv("JWT_SECRET"))
 }
 
 // GenerateAuthToken creates a signed JWT for the given user ID.

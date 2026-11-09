@@ -40,7 +40,7 @@ func GetDashboardStats(c *gin.Context) {
 	COUNT(*) FILTER (WHERE status = 'done'), 
 	COUNT(*) FILTER (WHERE due_date IS NOT NULL AND due_date < NOW() AND status != 'done')
 	FROM tasks
-	WHERE user_id = &1	
+	WHERE user_id = $1	
 	`, uid).Scan(&stats.Total, &stats.InProgress, &stats.Completed, &stats.Overdue)
 	if err != nil {
 		slog.Error("Failed to query dashboard stats",
@@ -48,6 +48,7 @@ func GetDashboardStats(c *gin.Context) {
 			"error", err.Error(),
 		)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load stats"})
+		return
 	}
 
 	// ─── Previous period counts (for delta calculation) ──────

@@ -56,3 +56,13 @@ export interface UpcomingTask {
   due_in: string;          // "today" | "tomorrow" | "in N days"
   project: string;
 }
+
+export interface DashboardActivityItem {
+  id: number;
+  user_id: number;
+  user_name: string;
+  avatar_url: string;
+  action: string;
+  target: string;
+  timestamp: string;
+}

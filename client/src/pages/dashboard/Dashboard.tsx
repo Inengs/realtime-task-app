@@ -14,6 +14,7 @@ import { useDashboardRecentTasks } from "../../hooks/useDashboardRecentTasks";
 import { useDashboardProgress } from "../../hooks/useDashboardProgress";
 import { useDashboardTrend } from "../../hooks/useDashboardTrend";
 import { useDashboardUpcoming } from "../../hooks/useDashboardUpcoming";
+import { useDashboardActivity } from "../../hooks/useDashboardActivity";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ export default function DashboardPage() {
   const { tasks, loading: tasksLoading } = useDashboardRecentTasks();
   const { progress } = useDashboardProgress();
   const { tasks: upcomingTasks } = useDashboardUpcoming();
-
+  const { activities } = useDashboardActivity();
 
   // Loading state — show skeleton
   if (loading) {
@@ -137,7 +138,7 @@ export default function DashboardPage() {
 
       {/* Section 3b */}
       <div className="grid grid-cols-1 gap-4">
-        <TeamActivity activities={teamActivity} />
+        <TeamActivity activities={activities} />
       </div>
     </div>
   );

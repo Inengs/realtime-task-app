@@ -9,7 +9,8 @@ import type {
     DashboardTask,
     DashboardProgress,
     DashboardTrendPoint,
-    UpcomingTask
+    UpcomingTask,
+    DashboardActivityItem
 } from "../types/dashboard"
 
 export async function getDashboardStats(): Promise<{ message: string; stats: DashboardStats }> {
@@ -34,5 +35,10 @@ export async function getDashboardTrend(days = 14): Promise<{ message: string; t
 
 export async function getDashboardUpcoming(days = 7): Promise<{ message: string; tasks: UpcomingTask[] }> {
   const { data } = await api.get(`/dashboard/upcoming?days=${days}`);
+  return data;
+}
+
+export async function getDashboardActivity(limit = 5): Promise<{ message: string; activity: DashboardActivityItem[] }> {
+  const { data } = await api.get(`/dashboard/activity?limit=${limit}`);
   return data;
 }

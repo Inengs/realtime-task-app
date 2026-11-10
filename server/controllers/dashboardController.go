@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/Inengs/realtime-task-app/models"
 	"github.com/gin-gonic/gin"
@@ -309,5 +311,114 @@ func GetDashboardProgress(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message":  "Progress loaded",
 		"progress": progress,
+	})
+}
+
+func GetDashboardTrend(c *gin.Context) {
+	db := c.MustGet("db").(*sql.DB)
+
+	userID, exists := c.Get("user_id") // get user if from context
+	if !exists {
+		slog.Warn("Unauthorized dashboard access attempt",
+			"endpoint", "/dashboard/trend",
+			"ip", c.ClientIP(),
+		)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	uid, ok := userID.(int) // convert the user id into an int
+	if !ok {
+		slog.Error("user_id in context is not an int",
+			"type", fmt.Sprintf("%T", userID),
+			"endpoint", "/dashboard/trend",
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	// Optional ?days=14 query param (default 14, max 90)
+	days := 14
+	if d := c.Query("days"); d != "" {
+		if n, err := strconv.Atoi(d); err == nil && n > 0 && n <= 90 {
+			days = n
+		}
+	}
+
+	// Query: count completed tasks per day for the last N days
+	// We use created_at as a proxy for "completed on" since we don't have a
+	// separate completed_at column. If you add completed_at later, switch to that.
+	rows, err := db.Query(`
+        SELECT DATE(created_at) AS day, COUNT(*)
+        FROM tasks
+        WHERE user_id = $1
+          AND status = 'done'
+          AND created_at >= NOW() - ($2 || ' days')::INTERVAL
+        GROUP BY day
+        ORDER BY day ASC
+    `, uid, days)
+	if err != nil {
+		slog.Error("Failed to query dashboard trend",
+			"user_id", uid,
+			"days", days,
+			"error", err.Error(),
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load trend"})
+		return
+	}
+	defer rows.Close()
+
+	// Build a map of date → count (only days that have completed tasks)
+	dayMap := map[string]int{}
+	for rows.Next() {
+		var day time.Time
+		var count int
+		if err := rows.Scan(&day, &count); err != nil {
+			slog.Warn("Failed to scan trend row",
+				"user_id", uid,
+				"error", err.Error(),
+			)
+			continue
+		}
+		dayMap[day.Format("2006-01-02")] = count
+	}
+	if err := rows.Err(); err != nil {
+		slog.Error("Error iterating trend rows",
+			"user_id", uid,
+			"error", err.Error(),
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load trend"})
+		return
+	}
+
+	// Build a full N-day series — fill missing days with 0
+	// so the chart shows continuous data even if no tasks were completed
+	// on certain days.
+	var trend []models.DashboardTrendPoint
+	for i := days - 1; i >= 0; i-- {
+		day := time.Now().AddDate(0, 0, -i)
+		key := day.Format("2006-01-02")
+		count := dayMap[key] // 0 if missing
+		trend = append(trend, models.DashboardTrendPoint{
+			Date:      key,
+			Completed: count,
+		})
+	}
+
+	// Empty slice (not nil) so JSON returns [] instead of null
+	if trend == nil {
+		trend = []models.DashboardTrendPoint{}
+	}
+
+	slog.Info("Dashboard trend loaded",
+		"user_id", uid,
+		"days", days,
+		"points", len(trend),
+	)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Trend loaded",
+		"trend":   trend,
+		"days":    days,
 	})
 }

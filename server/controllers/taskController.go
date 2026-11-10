@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/Inengs/realtime-task-app/models"
+	"github.com/Inengs/realtime-task-app/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 )
@@ -156,6 +157,9 @@ func CreateNewTask(c *gin.Context) {
 		return
 	}
 
+	// ─── Log activity: "user created task X" ───
+	utils.LogActivity(db, userIDInt, "task", task.ID, "created", task.Title, nil)
+
 	// Send notification and broadcast task
 	if err := SendNotification(db, userIDInt, fmt.Sprintf("New task created: %s", task.Title)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send notification"})
@@ -301,6 +305,10 @@ func DeleteTask(c *gin.Context) {
 		return
 	}
 
+	// ─── Log activity: "user deleted task X" ───
+	// Note: task.ID is gone from DB now, but we still log the title for the feed.
+	utils.LogActivity(db, userIDInt, "task", task.ID, "deleted", task.Title, nil)
+
 	// Send notification and broadcast task deletion
 	if err := SendNotification(db, userIDInt, fmt.Sprintf("Task deleted: %s", task.Title)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send notification"})
@@ -372,6 +380,16 @@ func UpdateTaskStatus(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
+
+    // ─── Log activity with action based on new status ───
+    // "completed" reads better than "updated" when a task is marked done
+    action := "updated"
+    if status.Status == "done" {
+        action = "completed"
+    } else if status.Status == "in-progress" {
+        action = "started"
+    }
+    utils.LogActivity(db, userIDInt, "task", task.ID, action, task.Title, nil)
 
 	// Send notification and broadcast task
 	if err := SendNotification(db, userIDInt, fmt.Sprintf("Task status updated to %s: %s", task.Status, task.Title)); err != nil {

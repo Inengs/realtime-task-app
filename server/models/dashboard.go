@@ -54,15 +54,6 @@ type DashboardTrendPoint struct {
 	Completed int    `json:"completed"`
 }
 
-// ─── Activity ───────────────────────────────────────────
-type DashboardActivityItem struct {
-	ID        int       `json:"id"`
-	UserID    int       `json:"user_id"`
-	UserName  string    `json:"user_name"`
-	Action    string    `json:"action"`
-	Target    string    `json:"target"`
-	Timestamp time.Time `json:"timestamp"`
-}
 
 // ─── Aggregate response ─────────────────────────────────
 type DashboardResponse struct {
@@ -72,3 +63,12 @@ type DashboardResponse struct {
 	Trend       []DashboardTrendPoint   `json:"trend"`
 	Activity    []DashboardActivityItem `json:"activity"`
 }
+
+type UpcomingTask struct {
+    ID       int        `json:"id"`
+    Title    string     `json:"title"`
+    Priority string     `json:"priority"`
+    DueDate  *time.Time `json:"due_date"`
+    DueIn    string     `json:"due_in"`        // human-readable: "today", "tomorrow", "in 3 days"
+    Project  string     `json:"project"`
+} 

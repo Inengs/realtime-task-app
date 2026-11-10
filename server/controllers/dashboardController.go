@@ -422,3 +422,115 @@ func GetDashboardTrend(c *gin.Context) {
 		"days":    days,
 	})
 }
+
+// GetDashboardUpcoming returns tasks due in the next N days, sorted by due date ASC.
+//
+// @Summary      Get upcoming tasks
+// @Tags         dashboard
+// @Produce      json
+// @Security     BearerAuth
+// @Param        days  query  int  false  "Look-ahead window (default 7, max 30)"
+// @Success      200  {object}  map[string]any
+// @Router       /dashboard/upcoming [get]
+func GetDashboardUpcoming(c *gin.Context) {
+	db := c.MustGet("db").(*sql.DB)
+
+	userID, exists := c.Get("user_id") // get user id
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	uid, ok := userID.(int) // convert to int
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	days := 7 // this is for default amount of days
+	if d := c.Query("days"); d != "" {
+		// this is to check whether the query params 'days' can be converted to int, if it can that is the value we will use for the look-ahead
+		if n, err := strconv.Atoi(d); err == nil && n > 0 && n <= 30 {
+			days = n
+		}
+	}
+
+	// Tasks with a due_date in the next N days, NOT done, sorted soonest first.
+	// JOIN projects to get the project name (matches the inspiration image).
+	rows, err := db.Query(`
+        SELECT
+            t.id,
+            t.title,
+            COALESCE(t.priority, 'medium'),
+            t.due_date,
+            p.name AS project_name
+        FROM tasks t
+        LEFT JOIN projects p ON t.project_id = p.id
+        WHERE t.user_id = $1
+          AND t.due_date IS NOT NULL
+          AND t.due_date >= NOW()
+          AND t.due_date <= NOW() + ($2 || ' days')::INTERVAL
+          AND t.status != 'done'
+        ORDER BY t.due_date ASC
+        LIMIT 10
+    `, uid, days)
+	if err != nil {
+		slog.Error("Failed to query upcoming tasks",
+			"user_id", uid,
+			"error", err.Error(),
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load upcoming"})
+		return
+	}
+	defer rows.Close()
+
+	var tasks []models.UpcomingTask
+	for rows.Next() {
+		var task models.UpcomingTask
+		var projectName sql.NullString
+		if err := rows.Scan(&task.ID, &task.Title, &task.Priority, &task.DueDate, &projectName); err != nil {
+			continue
+		}
+		if projectName.Valid {
+			task.Project = projectName.String
+		} else {
+			task.Project = "No project"
+		}
+		task.DueIn = computeDueIn(*task.DueDate)
+		tasks = append(tasks, task)
+	}
+	if err := rows.Err(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load upcoming"})
+		return
+	}
+
+	if tasks == nil {
+		tasks = []models.UpcomingTask{}
+	}
+
+	slog.Info("Upcoming tasks loaded", "user_id", uid, "count", len(tasks))
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Upcoming tasks loaded",
+		"tasks":   tasks,
+	})
+}
+
+// computeDueIn returns a human-readable relative time string.
+// "today" | "tomorrow" | "in N days"
+func computeDueIn(due time.Time) string {
+	// Strip time portion for day-level comparison
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	dueDay := time.Date(due.Year(), due.Month(), due.Day(), 0, 0, 0, 0, due.Location())
+
+	diff := int(dueDay.Sub(today).Hours() / 24)
+	switch {
+	case diff <= 0:
+		return "today"
+	case diff == 1:
+		return "tomorrow"
+	default:
+		return "in " + strconv.Itoa(diff) + " days"
+	}
+}

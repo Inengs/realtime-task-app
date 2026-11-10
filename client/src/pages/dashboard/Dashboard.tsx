@@ -13,12 +13,14 @@ import { DashboardSkeleton } from "./components/Skeleton";
 import { useDashboardRecentTasks } from "../../hooks/useDashboardRecentTasks";
 import { useDashboardProgress } from "../../hooks/useDashboardProgress";
 import { useDashboardTrend } from "../../hooks/useDashboardTrend";
+import { useDashboardUpcoming } from "../../hooks/useDashboardUpcoming";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { stats, loading, error, refetch } = useDashboardStats();
   const { tasks, loading: tasksLoading } = useDashboardRecentTasks();
   const { progress } = useDashboardProgress();
+  const { tasks: upcomingTasks } = useDashboardUpcoming();
 
 
   // Loading state — show skeleton

@@ -47,3 +47,12 @@ export interface DashboardTrendPoint {
   date: string;
   completed: number;
 }
+
+export interface UpcomingTask {
+  id: number;
+  title: string;
+  priority: string;
+  due_date: string | null;
+  due_in: string;          // "today" | "tomorrow" | "in N days"
+  project: string;
+}

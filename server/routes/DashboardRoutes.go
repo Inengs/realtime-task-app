@@ -14,5 +14,6 @@ func DashboardRoutes(router *gin.Engine) {
 		dashboard.GET("/progress", controllers.GetDashboardProgress)
 		dashboard.GET("/trend", controllers.GetDashboardTrend)
 		dashboard.GET("/upcoming", controllers.GetDashboardUpcoming)
+		dashboard.GET("/activity", controllers.GetDashboardActivity)
 	}
 }

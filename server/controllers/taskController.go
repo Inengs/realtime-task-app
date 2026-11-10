@@ -381,15 +381,16 @@ func UpdateTaskStatus(c *gin.Context) {
 		return
 	}
 
-    // ─── Log activity with action based on new status ───
-    // "completed" reads better than "updated" when a task is marked done
-    action := "updated"
-    if status.Status == "done" {
-        action = "completed"
-    } else if status.Status == "in-progress" {
-        action = "started"
-    }
-    utils.LogActivity(db, userIDInt, "task", task.ID, action, task.Title, nil)
+	// ─── Log activity with action based on new status ───
+	// "completed" reads better than "updated" when a task is marked done
+	action := "updated"
+	switch status.Status {
+	case "done":
+		action = "completed"
+	case "in-progress":
+		action = "started"
+	}
+	utils.LogActivity(db, userIDInt, "task", task.ID, action, task.Title, nil)
 
 	// Send notification and broadcast task
 	if err := SendNotification(db, userIDInt, fmt.Sprintf("Task status updated to %s: %s", task.Status, task.Title)); err != nil {

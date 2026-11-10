@@ -534,3 +534,105 @@ func computeDueIn(due time.Time) string {
 		return "in " + strconv.Itoa(diff) + " days"
 	}
 }
+
+// GetDashboardActivity returns a recent activity feed for the user.
+// Reads from the activity_log table (populated by utils.LogActivity).
+func GetDashboardActivity(c *gin.Context) {
+	db := c.MustGet("db").(*sql.DB)
+
+	userID, exists := c.Get("user_id")
+	if !exists {
+		slog.Warn("Unauthorized dashboard access attempt",
+			"endpoint", "/dashboard/activity",
+			"ip", c.ClientIP(),
+		)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	uid, ok := userID.(int)
+	if !ok {
+		slog.Error("user_id in context is not an int",
+			"type", fmt.Sprintf("%T", userID),
+			"endpoint", "/dashboard/activity",
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	// Optional ?limit=5 query param (default 5, max 20)
+	limit := 5 // default value
+	if l := c.Query("limit"); l != "" {
+		if n, err := strconv.Atoi(l); err == nil && n > 0 && n <= 20 {
+			limit = n
+		}
+	}
+
+	// Real activity_log query — JOIN users to get username + avatar_url
+	rows, err := db.Query(`
+        SELECT
+            a.id,
+            a.user_id,
+            u.username,
+            COALESCE(u.avatar_url, ''),
+            a.action,
+            a.target,
+            a.created_at
+        FROM activity_log a
+        INNER JOIN users u ON a.user_id = u.id
+        WHERE a.user_id = $1
+        ORDER BY a.created_at DESC
+        LIMIT $2
+    `, uid, limit)
+	if err != nil {
+		slog.Error("Failed to query activity log",
+			"user_id", uid,
+			"error", err.Error(),
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load activity"})
+		return
+	}
+	defer rows.Close()
+
+	var activities []models.DashboardActivityItem
+	for rows.Next() {
+		var a models.DashboardActivityItem
+		if err := rows.Scan(
+			&a.ID,
+			&a.UserID,
+			&a.UserName,
+			&a.AvatarURL,
+			&a.Action,
+			&a.Target,
+			&a.Timestamp,
+		); err != nil {
+			slog.Warn("Failed to scan activity row",
+				"user_id", uid,
+				"error", err.Error(),
+			)
+			continue
+		}
+		activities = append(activities, a)
+	}
+	if err := rows.Err(); err != nil {
+		slog.Error("Error iterating activity rows",
+			"user_id", uid,
+			"error", err.Error(),
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load activity"})
+		return
+	}
+
+	if activities == nil {
+		activities = []models.DashboardActivityItem{}
+	}
+
+	slog.Info("Dashboard activity loaded",
+		"user_id", uid,
+		"count", len(activities),
+	)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":  "Activity loaded",
+		"activity": activities,
+	})
+}

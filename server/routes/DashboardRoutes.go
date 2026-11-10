@@ -10,5 +10,6 @@ func DashboardRoutes(router *gin.Engine) {
 	dashboard := router.Group("/dashboard", middleware.AuthMiddleware())
 	{
 		dashboard.GET("stats", controllers.GetDashboardStats)
+		dashboard.GET("/recent-tasks", controllers.GetDashboardRecentTasks)
 	}
 }

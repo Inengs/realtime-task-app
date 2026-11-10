@@ -15,27 +15,17 @@ api.interceptors.request.use((config) => {
 });
 
 // Auto-redirect to /login on 401
-// api.interceptors.response.use(
-//   (response) => response,
-//   (error) => {
-//     if (error.response?.status === 401 && !window.location.pathname.startsWith("/login")) {
-//       localStorage.removeItem("token");
-//       window.location.href = "/login";
-//     }
-//     return Promise.reject(error);
-//   }
-// );
-
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // TEMP: don't redirect on 401 — we're debugging
-    // if (error.response?.status === 401 && !window.location.pathname.startsWith("/login")) {
-    //   localStorage.removeItem("token");
-    //   window.location.href = "/login";
-    // }
+    if (error.response?.status === 401 && !window.location.pathname.startsWith("/login")) {
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+    }
     return Promise.reject(error);
   }
 );
+
+
 
 export default api;

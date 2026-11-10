@@ -241,3 +241,73 @@ func GetDashboardRecentTasks(c *gin.Context) {
 		"tasks":   tasks,
 	})
 }
+
+// GetDashboardProgress returns the overall task completion percentage.
+// Used by the donut chart in the dashboard.
+func GetDashboardProgress(c *gin.Context) {
+	db := c.MustGet("db").(*sql.DB)
+
+	userID, exists := c.Get("user_id") // check whether the user id exists
+	if !exists {
+		// if it doesnt log error
+		slog.Warn("Unauthorized dashboard access attempt",
+			"endpoint", "/dashboard/progress",
+			"ip", c.ClientIP(),
+		)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	uid, ok := userID.(int) // convert the user id into an int
+	if !ok {
+		slog.Error("user_id in context is not an int",
+			"type", fmt.Sprintf("%T", userID),
+			"endpoint", "/dashboard/progress",
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	// Single query — count total and completed in one round trip
+	var completed, total int
+	err := db.QueryRow(`
+        SELECT
+            COUNT(*) FILTER (WHERE status = 'done'),
+            COUNT(*)
+        FROM tasks
+        WHERE user_id = $1
+    `, uid).Scan(&completed, &total)
+	if err != nil {
+		slog.Error("Failed to query dashboard progress",
+			"user_id", uid,
+			"error", err.Error(),
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load progress"})
+		return
+	}
+
+	// Compute percentage (avoid divide-by-zero)
+	percentage := 0
+	if total > 0 {
+		percentage = int((float64(completed) / float64(total)) * 100) // formula for calculating it
+	}
+
+	progress := models.DashboardProgress{
+		// compute the value into the response
+		Completed:  completed,
+		Total:      total,
+		Percentage: percentage,
+	}
+
+	slog.Info("Dashboard progress loaded",
+		"user_id", uid,
+		"completed", completed,
+		"total", total,
+		"percentage", percentage,
+	)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":  "Progress loaded",
+		"progress": progress,
+	})
+}

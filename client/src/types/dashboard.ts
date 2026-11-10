@@ -36,3 +36,9 @@ export interface DashboardTask {
   creator: TaskUserBrief;
   assignee: TaskUserBrief | null;
 }
+
+export interface DashboardProgress {
+  completed: number;
+  total: number;
+  percentage: number;
+}

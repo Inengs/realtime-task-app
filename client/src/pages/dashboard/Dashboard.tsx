@@ -11,11 +11,13 @@ import { useDashboardStats } from "../../hooks/useDashboardStats";
 import { StatItem } from "../../types/dashboard";
 import { DashboardSkeleton } from "./components/Skeleton";
 import { useDashboardRecentTasks } from "../../hooks/useDashboardRecentTasks";
+import { useDashboardProgress } from "../../hooks/useDashboardProgress";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { stats, loading, error, refetch } = useDashboardStats();
   const { tasks, loading: tasksLoading } = useDashboardRecentTasks();
+  const { progress } = useDashboardProgress();
 
   // Loading state — show skeleton
   if (loading) {
@@ -111,7 +113,10 @@ export default function DashboardPage() {
           <TaskList tasks={tasks} />
         </div>
         <div className="lg:col-span-1">
-          <ProgressRing completed={progress.completed} total={progress.total} />
+          <ProgressRing
+            completed={progress?.completed ?? 0}
+            total={progress?.total ?? 0}
+          />
         </div>
       </div>
 

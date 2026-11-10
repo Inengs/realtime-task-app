@@ -6,7 +6,8 @@ import api from "../axios/api"
 import type {
     DashboardStats,
     TaskUserBrief,
-    DashboardTask
+    DashboardTask,
+    DashboardProgress,
 } from "../types/dashboard"
 
 export async function getDashboardStats(): Promise<{ message: string; stats: DashboardStats }> {
@@ -16,5 +17,10 @@ export async function getDashboardStats(): Promise<{ message: string; stats: Das
 
 export async function getDashboardRecentTasks(): Promise<{ message: string; tasks: DashboardTask[] }> {
   const { data } = await api.get("/dashboard/recent-tasks");
+  return data;
+}
+
+export async function getDashboardProgress(): Promise<{ message: string; progress: DashboardProgress }> {
+  const { data } = await api.get("/dashboard/progress");
   return data;
 }

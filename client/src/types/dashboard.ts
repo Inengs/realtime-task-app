@@ -42,3 +42,8 @@ export interface DashboardProgress {
   total: number;
   percentage: number;
 }
+
+export interface DashboardTrendPoint {
+  date: string;
+  completed: number;
+}

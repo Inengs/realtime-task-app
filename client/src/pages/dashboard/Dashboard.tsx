@@ -12,12 +12,14 @@ import { StatItem } from "../../types/dashboard";
 import { DashboardSkeleton } from "./components/Skeleton";
 import { useDashboardRecentTasks } from "../../hooks/useDashboardRecentTasks";
 import { useDashboardProgress } from "../../hooks/useDashboardProgress";
+import { useDashboardTrend } from "../../hooks/useDashboardTrend";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { stats, loading, error, refetch } = useDashboardStats();
   const { tasks, loading: tasksLoading } = useDashboardRecentTasks();
   const { progress } = useDashboardProgress();
+
 
   // Loading state — show skeleton
   if (loading) {
@@ -121,9 +123,10 @@ export default function DashboardPage() {
       </div>
 
       {/* Section 3 */}
+      {/* TrendChart — now fetches its own data */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
-          <TrendChart data={taskTrend} />
+          <TrendChart />
         </div>
         <div className="lg:col-span-1">
           <UpcomingTasks tasks={upcomingTasks} />

@@ -10,10 +10,12 @@ import TeamActivity from "./components/TeamActivity";
 import { useDashboardStats } from "../../hooks/useDashboardStats";
 import { StatItem } from "../../types/dashboard";
 import { DashboardSkeleton } from "./components/Skeleton";
+import { useDashboardRecentTasks } from "../../hooks/useDashboardRecentTasks";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { stats, loading, error, refetch } = useDashboardStats();
+  const { tasks, loading: tasksLoading } = useDashboardRecentTasks();
 
   // Loading state — show skeleton
   if (loading) {
@@ -106,7 +108,7 @@ export default function DashboardPage() {
       {/* Section 2 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
-          <TaskList tasks={recentTasks} />
+          <TaskList tasks={tasks} />
         </div>
         <div className="lg:col-span-1">
           <ProgressRing completed={progress.completed} total={progress.total} />

@@ -25,3 +25,14 @@ export interface StatItem {
   trend: "up" | "down"; // direction of change
   icon: "list" | "loader" | "check-circle" | "alert-circle";
 }
+
+export interface DashboardTask {
+  id: number;
+  title: string;
+  status: string;
+  priority: string;
+  due_date: string | null;
+  created_at: string;
+  creator: TaskUserBrief;
+  assignee: TaskUserBrief | null;
+}

@@ -67,7 +67,7 @@ function App() {
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/projects/:projectId" element={<div className="p-8">Project board coming soon</div>} />
+          <Route path="/projects/:projectId" element={<ProjectPage />} />
           <Route path="/tasks" element={<TaskPage />} />
           <Route path="/messages" element={<div className="p-8">Messages page coming soon</div>} />
           <Route path="/settings" element={<div className="p-8">Settings page coming soon</div>} />

@@ -9,6 +9,7 @@ import ProfilePage from "./pages/profile/Profile";
 import ProjectsPage from "./pages/project-management/ProjectsPage";
 import TaskPage from "./pages/task-creation/TaskForm";
 import WelcomePage from "./pages/welcome page/Welcome";
+import ProjectPage from "./pages/project-management/ProjectPage";
 
 // Protected Route Wrapper
 // Protected Route Wrapper — now returns Outlet, not children
@@ -76,6 +77,7 @@ function App() {
           <Route path="/members" element={<div className="p-8">Members page coming soon</div>} />
           <Route path="/teams" element={<div className="p-8">Teams page coming soon</div>} />
           <Route path="/activity" element={<div className="p-8">Activity Log coming soon</div>} />
+          <Route path="/projects/:projectId" element={<ProjectPage />} />
         </Route>
       </Route>
 

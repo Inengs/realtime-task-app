@@ -29,3 +29,15 @@ export interface ProjectInput {
   name: string;
   description: string;
 }
+
+// GET /projects/:id: header data for the board page.
+export interface ProjectDetail {
+  id: number;
+  name: string;
+  description: string;
+  role: ProjectRole;
+  member_count: number;
+  members: TaskUserBrief[]; // first 8
+  created_at: string;
+  updated_at: string;
+}

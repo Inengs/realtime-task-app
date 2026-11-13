@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Inengs/realtime-task-app/models"
+	"github.com/Inengs/realtime-task-app/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 )
@@ -121,48 +122,94 @@ func ListProjects(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Projects loaded", "projects": projects})
 }
 
-// ProjectDetails fetches one project by ID
+// ProjectDetails returns one project, the caller's role and a few members.
 //
 //	@Summary	Project details
 //	@Tags		projects
 //	@Produce	json
-//	@Security	SessionCookie
+//	@Security	BearerAuth
 //	@Param		id	path		int	true	"Project ID"
 //	@Success	200	{object}	map[string]any
 //	@Failure	404	{object}	map[string]any
 //	@Router		/projects/{id} [get]
 func ProjectDetails(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB)
-	projectIDParam := c.Param("id")
 
-	projectID, err := strconv.Atoi(projectIDParam)
-
-	if err != nil {
-		c.JSON(400, gin.H{"message": "Invalid IDs"})
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
-
-	// Get user ID from session
-	userID, ok := c.Get("user_id")
+	uid, ok := userID.(int) // convert the
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		slog.Error("user_id in context is not an int", "endpoint", "GET /projects/:id")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
-	userIDInt, _ := userID.(int)
 
-	var project models.Project
-	err = db.QueryRow("SELECT id, user_id, name, description, created_at, updated_at FROM projects WHERE id = $1 AND user_id = $2", projectID, userIDInt).Scan(&project.ID, &project.UserID, &project.Name, &project.Description, &project.CreatedAt, &project.UpdatedAt)
+	projectID, err := strconv.Atoi(c.Param("id")) // convert the param to an int
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
+		return
+	}
 
-	if err == sql.ErrNoRows {
-		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Project with ID %d not found", projectID)})
+	// Membership check first. Non-members get 404, so a project's existence isn't leaked.
+	role, err := utils.RequireProjectRole(db, projectID, uid, "member")
+	if err != nil {
+		utils.RespondProjectAccessError(c, err)
+		return
+	}
+
+	project := models.ProjectDetail{Role: role, Members: []models.TaskUserBrief{}} // creates the response struct
+	err = db.QueryRow(`
+		SELECT p.id, p.name, COALESCE(p.description, ''), p.created_at, p.updated_at,
+		       (SELECT COUNT(*) FROM project_members WHERE project_id = p.id)
+		FROM projects p
+		WHERE p.id = $1`, projectID,
+	).Scan(&project.ID, &project.Name, &project.Description,
+		&project.CreatedAt, &project.UpdatedAt, &project.MemberCount)
+	if err == sql.ErrNoRows { // deleted between the role check and here
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		slog.Error("Failed to load project", "user_id", uid, "project_id", projectID, "error", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load project"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Project retrieved successfully", "project": project})
+	//this is to get the project members
+	rows, err := db.Query(`
+		SELECT u.id, u.username, COALESCE(u.avatar_url, '')
+		FROM project_members pm
+		JOIN users u ON u.id = pm.user_id
+		WHERE pm.project_id = $1
+		ORDER BY pm.joined_at, pm.user_id
+		LIMIT 8`, projectID)
+	if err != nil {
+		slog.Error("Failed to load project members", "project_id", projectID, "error", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load project"})
+		return
+	}
+	defer rows.Close()
+
+	//It loops over the member rows the query returned in the previous code, copies each row into a TaskUserBrief and appends it to project.Members
+	for rows.Next() {
+		var m models.TaskUserBrief
+		if err := rows.Scan(&m.ID, &m.Username, &m.AvatarURL); err != nil {
+			slog.Error("Failed to scan member row", "project_id", projectID, "error", err.Error())
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load project"})
+			return
+		}
+		project.Members = append(project.Members, m)
+	}
+	if err := rows.Err(); err != nil {
+		slog.Error("Error iterating member rows", "project_id", projectID, "error", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load project"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Project loaded", "project": project})
 }
 
 // CreateProject creates a project and makes the caller its owner.

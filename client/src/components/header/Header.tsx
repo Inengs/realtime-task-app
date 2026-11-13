@@ -1,4 +1,3 @@
-import { useLocation } from "react-router-dom";
 import SearchBar from "./SearchBar";
 import { routes } from "../../config/routes";
 import SettingsIconButton from "./SettingsIconButton";
@@ -6,15 +5,19 @@ import InfoIconButton from "./InfoIconButton";
 import MessagesIconButton from "./MessageIconButton";
 import NotificationsIconButton from "./NotificationsIconButton";
 import ProfileDropdown from "./ProfileDropdown";
+import { useLocation, matchPath } from "react-router-dom";
 
 export default function Header() {
   const location = useLocation();
 
   // Find the matching route config; fall back to a default if none match
-  const current = routes.find((r) => r.path === location.pathname) ?? {
-    title: "TaskFlow",
-    description: "Real-time task management for modern teams",
-  };
+  const current =
+    routes.find((r) =>
+      matchPath({ path: r.path, end: false }, location.pathname)
+    ) ?? {
+      title: "TaskFlow",
+      description: "Real-time task management for modern teams",
+    };
 
   return (
     <header className="sticky top-0 z-30 flex items-center w-full h-16 px-6 bg-white border-b border-gray-200">

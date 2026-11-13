@@ -6,7 +6,7 @@ import LoginRegister from "./pages/login register/LoginRegister";
 import EmailVerificationPage from "./pages/email-verification/EmailVerification";
 import NotificationsPage from "./pages/notifications/Notifications";
 import ProfilePage from "./pages/profile/Profile";
-import ProjectManagementPage from "./pages/project-management/ProjectManagement";
+import ProjectManagementPage from "./pages/project-management/ProjectsPage";
 import TaskPage from "./pages/task-creation/TaskForm";
 import WelcomePage from "./pages/welcome page/Welcome";
 

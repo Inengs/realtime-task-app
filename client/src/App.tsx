@@ -6,7 +6,7 @@ import LoginRegister from "./pages/login register/LoginRegister";
 import EmailVerificationPage from "./pages/email-verification/EmailVerification";
 import NotificationsPage from "./pages/notifications/Notifications";
 import ProfilePage from "./pages/profile/Profile";
-import ProjectManagementPage from "./pages/project-management/ProjectsPage";
+import ProjectsPage from "./pages/project-management/ProjectsPage";
 import TaskPage from "./pages/task-creation/TaskForm";
 import WelcomePage from "./pages/welcome page/Welcome";
 
@@ -65,7 +65,8 @@ function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/projects" element={<ProjectManagementPage />} />
+          <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/projects/:projectId" element={<div className="p-8">Project board coming soon</div>} />
           <Route path="/tasks" element={<TaskPage />} />
           <Route path="/messages" element={<div className="p-8">Messages page coming soon</div>} />
           <Route path="/settings" element={<div className="p-8">Settings page coming soon</div>} />

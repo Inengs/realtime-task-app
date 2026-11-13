@@ -14,3 +14,18 @@ export interface ProjectListItem {
   created_at: string;
   updated_at: string;
 }
+
+// The raw project row returned by POST /projects/.
+export interface Project {
+  id: number;
+  name: string;
+  description: string;
+  user_id: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectInput {
+  name: string;
+  description: string;
+}

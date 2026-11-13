@@ -1,4 +1,4 @@
-// client/src/api/axios.ts
+// client/src/axios/api.ts
 import axios from "axios";
 
 const api = axios.create({

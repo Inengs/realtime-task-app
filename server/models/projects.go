@@ -14,7 +14,7 @@ type Project struct {
 
 // ProjectInput is used for creating/updating a project from a request body
 type ProjectInput struct {
-	Name        string `json:"name" binding:"required" validate:"required"`
+	Name        string `json:"name" binding:"required" validate:"required,max=255"`
 	Description string `json:"description"`
 }
 
@@ -27,6 +27,18 @@ type ProjectListItem struct {
 	DoneCount   int             `json:"done_count"`
 	MemberCount int             `json:"member_count"`
 	Members     []TaskUserBrief `json:"members"` // up to 4, for the avatar stack
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
+}
+
+// ProjectDetail powers the header of a project's board page.
+type ProjectDetail struct {
+	ID          int             `json:"id"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Role        string          `json:"role"` // the caller's role
+	MemberCount int             `json:"member_count"`
+	Members     []TaskUserBrief `json:"members"` // first 8
 	CreatedAt   time.Time       `json:"created_at"`
 	UpdatedAt   time.Time       `json:"updated_at"`
 }

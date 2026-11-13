@@ -6,11 +6,15 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/Inengs/realtime-task-app/models"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 )
+
+// Reuse one validator; building it per request is wasteful.
+var projectValidator = validator.New()
 
 // ListProjects returns the projects the authenticated user is a member of.
 //
@@ -161,13 +165,13 @@ func ProjectDetails(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Project retrieved successfully", "project": project})
 }
 
-// CreateProject creates a project
+// CreateProject creates a project and makes the caller its owner.
 //
 //	@Summary	Create project
 //	@Tags		projects
 //	@Accept		json
 //	@Produce	json
-//	@Security	SessionCookie
+//	@Security	BearerAuth
 //	@Param		request	body		models.ProjectInput	true	"Project"
 //	@Success	201		{object}	map[string]any
 //	@Failure	400		{object}	map[string]any
@@ -175,47 +179,75 @@ func ProjectDetails(c *gin.Context) {
 func CreateProject(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB)
 
-	// Get user ID from session
-	userID, ok := c.Get("user_id")
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
-	userIDInt, _ := userID.(int)
+	uid, ok := userID.(int) //convert to int
+	if !ok {
+		slog.Error("user_id in context is not an int", "endpoint", "POST /projects")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
 
 	var input models.ProjectInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
+	input.Name = strings.TrimSpace(input.Name)               // "   " must not count as a name
+	input.Description = strings.TrimSpace(input.Description) // trim the white spaces
 
-	validate := validator.New()
-	if err := validate.Struct(input); err != nil {
+	if err := projectValidator.Struct(input); err != nil {
+		// validate the input gotten, by the model defined
 		var errs []string
-		for _, err := range err.(validator.ValidationErrors) {
-			errs = append(errs, fmt.Sprintf("Field '%s' failed on '%s'", err.Field(), err.Tag()))
+		for _, e := range err.(validator.ValidationErrors) {
+			errs = append(errs, fmt.Sprintf("Field '%s' failed on '%s'", e.Field(), e.Tag()))
 		}
 		c.JSON(http.StatusBadRequest, gin.H{"errors": errs})
 		return
 	}
 
+	// Project + owner membership must succeed or fail together.
+	transaction, err := db.Begin() // insert the row into projects and insert the row into project_members with role owner
+	if err != nil {
+		slog.Error("Failed to begin transaction", "user_id", uid, "error", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create project"})
+		return
+	}
+	defer transaction.Rollback() // no-op once Commit succeeds
+
 	var project models.Project
-	err := db.QueryRow(
-		"INSERT INTO projects (name, description, user_id) VALUES ($1, $2, $3) RETURNING id, user_id, name, description, created_at, updated_at",
-		input.Name, input.Description, userIDInt,
+	// below we insert the new project row and then we read it back, all in one database call
+	err = transaction.QueryRow(
+		`INSERT INTO projects (name, description, user_id) VALUES ($1, $2, $3)
+		 RETURNING id, user_id, name, description, created_at, updated_at`,
+		input.Name, input.Description, uid,
 	).Scan(&project.ID, &project.UserID, &project.Name, &project.Description, &project.CreatedAt, &project.UpdatedAt)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		slog.Error("Failed to insert project", "user_id", uid, "error", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create project"})
 		return
 	}
 
-	// Send notification and broadcast project
-	if err := SendNotification(db, userIDInt, fmt.Sprintf("New project created: %s", project.Name)); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send notification"})
+	// inserts the owner into the project_members section
+	if _, err := transaction.Exec(
+		`INSERT INTO project_members (project_id, user_id, role) VALUES ($1, $2, 'owner')`,
+		project.ID, uid,
+	); err != nil {
+		slog.Error("Failed to add project owner", "user_id", uid, "project_id", project.ID, "error", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create project"})
 		return
 	}
-	manager.BroadcastProject(userIDInt, project, "project_created")
 
+	if err := transaction.Commit(); err != nil {
+		slog.Error("Failed to commit project creation", "user_id", uid, "error", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create project"})
+		return
+	}
+
+	slog.Info("Project created", "user_id", uid, "project_id", project.ID)
 	c.JSON(http.StatusCreated, gin.H{"message": "Project created successfully", "project": project})
 }
 
